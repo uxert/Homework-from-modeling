@@ -29,4 +29,15 @@ There are also some simplifications resulting from the fact that the boss is usi
 - Everything works flawlessly and never breaks down.
 - Exactly one train runs on each route - no need for synchronization.
 
-[^1]: Each of these one-letter variables is a parameter given when solving a specific case of the problem.
+
+### Technical constraints
+Due to the capabilities of the aforementioned game's engine there are some numerical constraints:
+- **total amount of cities cannot be greater than 255**
+- max city size and max distance between any 2 cities cannot be larger than 2^32-1
+- both infrastructure cost and one railway cost cannot be greater than 2^32 - 1
+- money can be calculated up to the value 2^64 - 1 (should be more than enough...)
+- max railway pieces amount can be up to 2^64 - 1
+
+
+[^1]: Each of these one-letter variables is a parameter given when solving a specific case of the problem and each one
+is accessible through config.ini file.
