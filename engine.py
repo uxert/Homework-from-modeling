@@ -6,8 +6,9 @@ being solved
 import numpy as np
 from typing import Tuple
 
+
 def generate_random_city_values(cities_amount:int, max_city_size: np.uint32 = 2**32-1, max_distance: np.uint32 = 2**32-1,
-                                seed: int = None) -> Tuple[np.ndarray, np.ndarray]:
+                                seed: int = None) -> Tuple[np.ndarray[np.uint32], np.ndarray[np.uint32]]:
     """
     This function generates random city parameters (i.e. distances between cities and their sizes) for the optimization
     problem. A seed can be provided if one has the need for reproducibility. Both max_city_size and max_distance
@@ -19,7 +20,7 @@ def generate_random_city_values(cities_amount:int, max_city_size: np.uint32 = 2*
         of i-th city.
     """
     rng = np.random.default_rng(seed)
-
+    cities_amount = 255 if cities_amount > 255 else cities_amount
     # distances matrix has to be symmetric by definition, but of course random generation does not provide that
     # symmetry is achieved by taking only upper half of the matrix, transposing it and adding the two pieces together
     # in one of the pieces k=1 so that the 'main' diagonal is taken into the account only once
@@ -28,26 +29,120 @@ def generate_random_city_values(cities_amount:int, max_city_size: np.uint32 = 2*
     distances_matrix = np.triu(distances_matrix, k=1) + (np.triu(distances_matrix, k=0)).T
     city_sizes_vector: np.ndarray = rng.integers(low=1, high=max_city_size, size=(cities_amount,), dtype=np.uint32)
     # int64 used in numpy arrays by default is a drastic overkill, uint32 will be way more than enough
+    # noinspection PyTypeChecker
+    # for some reason PyCharm thinks those arrays do not have dtype=np.uint32
     return distances_matrix, city_sizes_vector
 
 
-def function_F(size1: np.uint32, size2: np.uint32, distance: np.uint32 ) -> np.uint64:
+# noinspection PyIncorrectDocstring
+def function_F(size1: np.uint32, size2: np.uint32, distance: np.uint32, max_result_val: np.uint64 = np.uint64(5e10)) \
+        -> np.uint64:
     """
     this function takes two city sizes and a distance between the cities and returns the amount of money earned
-    for connecting those two together. By definition F(sizeA, sizeB, dist) = F(sizeB, sizeA, dist). This function
-    expects input values as np.uint32 and returns np.uint64, since the resulting number might be greater by many orders
-    of magnitude. With uint64 there is no risk of an overflow, even with max (2**32 - 1) possible values as inputs.
-    If inputs are larger (they never should be btw) they will be truncated to numpy.iinfo(np.uint32).max
-    """
-    max_val = np.iinfo(np.uint32).max
-    size1 = size1 if size1 < max_val else max_val
-    size2 = size2 if size2 < max_val else max_val
-    distance = distance if distance < max_val else max_val
+    for connecting those two together. By definition F(sizeA, sizeB, dist) = F(sizeB, sizeA, dist).
+    With uint64 there is no risk of an overflow when using this function, even with max (2**32 - 1) possible values
+    as inputs. If inputs are larger (they never should be) they will be truncated to numpy.iinfo(np.uint32).max
 
-    # when performing np.log the result is automatically cast to np.float64
-    money = (np.log(size1) + np.log(size2)) * np.power(distance, 5/4, dtype=np.float64) * 100
-    # multiplying by a 100 effectively gets rid of two decimals - then with a clear conscience this number can be
-    # rounded to an int afterward.
+    This function implements tanh(distance/(10^6)) * max_result_val * (ln(size1) + ln(size2)). It is always increasing
+    with respect to all of its inputs. However, tanh is scaled in such a way that for distances smaller than 100 000
+    it is almost linear. For distance of one million it achieves around 76% of given max_result_val, with distance of
+    2 million it is 96%. Increasing distances greater than 100 000 start to yield noticeably lower money increase
+    (sigmoid-like shape)
+
+    The above formula is purely arbitrary and any callable taking two sizes and a distance that returns
+    one numpy.uint64 can be used instead. If you want to be sure nothing overflows (neither numpy nor this program will
+    warn you about it!!) make sure that value returned by your custom callable is never bigger than 5.6e14
+    since max money value is  1.844674e+19 and as for this moment max 32 385 connections are possible (255 choose 2).
+    Of course this will not be correct if number of cities is greater than 255 (which at the moment of writing this doc
+    is not allowed and there are no plans to change it in the future)
+
+    :param max_result_val: this parameter represents the supremum of the whole formula - this value is a limit of
+        this expression as all 3 inputs go to +infinity. For maximum possible (2^^32-1) inputs computed value is so
+        close to this parameter that a difference is too small to be represented in np.64float
+    """
+    max_param_val = np.iinfo(np.uint32).max
+    size1 = size1 if size1 < max_param_val else max_param_val
+    size2 = size2 if size2 < max_param_val else max_param_val
+    distance = distance if distance < max_param_val else max_param_val
+
+    # this performs a tanh(distance) * log(size1*size2) function with supremum of max_result_val
+    # money = (np.log(size1) + np.log(size2)) * np.tanh(distance/(10**6)) * (max_result_val / 2*np.log(max_param_val))
+    money = (np.log(size1) + np.log(size2))/(2 * np.log(max_param_val)) * np.tanh(distance/(10**6)) * max_result_val
     return money.astype(np.uint64)  # there is absolutely no point in being more precise than an
     # int value, especially since in this case "money" usually is in magnitude of millions or larger
+
+
+# noinspection PyIncorrectDocstring
+def goal_achievement_function(distances_matrix: np.ndarray[np.uint32], sizes_vector: np.ndarray[np.uint32],
+                              connections_matrix: np.ndarray[np.bool], max_cost: np.uint64,  max_railway_len: np.uint64,
+                              max_connections_count: np.uint32, one_rail_cost: np.uint32,
+                              one_infrastructure_cost: np.uint64) -> np.uint64:
+    """This function takes exactly one solution (or solution candidate) and evaluates it with non-negative score.
+    On the caller of this function lies the responsibility for ensuring that both matrices and the size_vector have
+    appropriate shapes (the same number of cities), that all provided values have correct datatypes and that the
+    matrices are symmetrical (they need to be because of what they represent)
+    :param distances_matrix: Matrix where element m[i][j] is the distance between city i and city j. By definition
+        m[i][j] = m[j][i] (this matrix has to be symmetrical)
+    :param connections_matrix: Matrix of booleans where element m[i][j] represents whether there is a connection
+        between cities i and j. Of course m[i][j] has to be equal to m[j][i], same as with the distances_matrix.
+     :returns: If the solution does not satisfy any of the constraints (for example too many connections) this function
+         returns exactly 0. Otherwise, it returns one positive integer representing a value of this solution -
+         the bigger, the better
+    """
+    # first checks for max number of connections, as it requires basically no computation
+    connections_count = np.uint32(np.count_nonzero(connections_matrix)) // 2
+    # needs to be divided by 2 due to the nature of the connections' matrix. Thanks to numpy vectorization looping over
+    # the whole matrix and dividing the result by 2 is way faster than iterating over only half of the matrix
+    if connections_count > max_connections_count:
+        return np.uint64(0)
+
+    # now checks for max railway length
+    built_rails_matrix = np.multiply(connections_matrix, distances_matrix)
+    built_rails_count = np.sum(built_rails_matrix, dtype=np.uint64) // 2  # as with connections result is divided by 2
+    if built_rails_count > max_railway_len:
+        return np.uint64(0)
+
+    # checks for max budget
+    rails_cost = built_rails_count * one_rail_cost
+    # using np.multiply to cast to np.uint64 to prevent any overflows
+    infrastructure_costs = np.multiply(connections_count, one_infrastructure_cost, dtype=np.uint64)
+    total_cost = rails_cost + infrastructure_costs
+    if total_cost > max_cost:
+        return np.uint64(0)
+
+    # if the function did not return up to this point all the additional requirements are met and the actual score can
+    # be calculated. Unfortunately I did not find a way to vectorize it using numpy built-ins and have to
+    # operate manually using indexes
+
+    upper_connections_half = np.triu(connections_matrix)  # this matrix by definition has to be symmetrical so we can
+    # take only one half without any loss of information instead of dividing by 2 at the end - this will save computing
+    rows, cols = upper_connections_half.nonzero()  # extracts indices of cities that are connected
+    connection_indexes = zip(rows, cols)  # each element is a pair of indexes representing one connection
+
+    individual_scores_matrix = np.zeros_like(connections_matrix, dtype=np.uint64)
+    for row, col in connection_indexes:
+        individual_scores_matrix[row,col] = function_F(sizes_vector[row], sizes_vector[col], distances_matrix[row,col])
+    overall_score = np.sum(individual_scores_matrix)
+
+
+    return overall_score
+
+
+if __name__ == "__main__":
+    # test block to see if everything works properly. This will never launch if the script is only imported, as it is
+    # meant to be. This will be cleaned after completing the whole engine
+    dist, sizes = generate_random_city_values(5, seed=42, max_city_size=np.uint32(20), max_distance=np.uint32(60))
+    np.random.seed(42)
+    random_connections = np.random.choice([True, False], size=(5, 5))
+    print("goal achievement function for randomly generated inputs:", end = " ")
+    print(goal_achievement_function(dist, sizes, random_connections, np.uint64(2_000_000),
+                                    np.uint64(200000), np.uint32(400),
+                                    np.uint32(15), np.uint32(10_009)))
+    test_max_result_val = np.float64(5e10)
+    result_for_max_params = function_F(np.uint32(2 ** 32 - 1), np.uint32(2 ** 32 - 1), np.uint32(2 ** 32 - 1),
+                                       max_result_val=test_max_result_val)
+    print(f"max F function val: {result_for_max_params:e}")
+    print(f"max F function difference from given max_val: {result_for_max_params - 5e10:e}")
+    for num in [1_000, 10_000, 50_000, 100_000, 500_000, 1_000_000, 2_000_000, 2**32 - 1]:
+        print(f"F function with sizes=3 for distance {num:_}: {function_F(np.uint32(3), np.uint32(3), np.uint32(num)):e}")
 
