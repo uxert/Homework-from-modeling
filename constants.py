@@ -8,7 +8,7 @@ config.read('config.ini')
 cities_amount = config["PARAMETERS"].getint('cities_amount_L')
 infrastructure_cost = config["PARAMETERS"].getint('infrastructure_cost_b')
 max_railways_pieces = config["PARAMETERS"].getint('max_railways_pieces_m')
-max_connections = config["PARAMETERS"].getint('max_connections_m')
+max_connections = config["PARAMETERS"].getint('max_connections_n')
 one_rail_cost = config["PARAMETERS"].getint('one_rail_cost_t')
 max_cost = config["PARAMETERS"].getint('max_budget_P')
 
