@@ -61,8 +61,26 @@ class EngineWrapper:
         # for some reason PyCharm thinks those arrays do not have dtype=np.uint32
         return distances_matrix, city_sizes_vector
 
-    @staticmethod
+    def generate_cities(self, cities_amount:np.uint8 = None, max_city_size: np.uint32 = None,
+                        max_distance: np.uint32 = None, seed: int = None) \
+        -> Tuple[np.ndarray[np.uint32], np.ndarray[np.uint32]]:
+        """
+        This method calls the static method self.generate_random_city_values(...). If any of given parameters is None,
+        then it's value is defaulted to the value created in __init__() of this object before it's passed to the
+        static function, with seed being the only exception.
+
+        Refer to docs of self.generate_random_city_values() for more information.
+        :param seed: Given seed is passed directly to the underlying self.generate_random_city_values() - if None is
+            given, then None will be passed further.
+        :return: returns the result from call of the underlying self.generate_random_city_values()
+        """
+        cities_amount = self.cities_count if cities_amount is None else cities_amount
+        max_city_size = self.max_city_size if max_city_size is None else max_city_size
+        max_distance = self.max_distance if max_distance is None else max_distance
+        return self.generate_random_city_values(cities_amount, max_city_size, max_distance, seed)
+
     # noinspection PyIncorrectDocstring
+    @staticmethod
     def function_F(size1: np.uint32, size2: np.uint32, distance: np.uint32, max_result_val: np.uint64 = np.uint64(5e10)) \
             -> np.uint64:
         """
@@ -99,8 +117,8 @@ class EngineWrapper:
         return money.astype(np.uint64)  # there is absolutely no point in being more precise than an
         # int value, especially since in this case "money" usually is in magnitude of millions or larger
 
-    @staticmethod
     # noinspection PyIncorrectDocstring
+    @staticmethod
     def goal_achievement_function(distances_matrix: np.ndarray[np.uint32], sizes_vector: np.ndarray[np.uint32],
                                   connections_matrix: np.ndarray[np.bool], max_cost: np.uint64,  max_railway_len: np.uint64,
                                   max_connections_count: np.uint32, one_rail_cost: np.uint32,
@@ -152,14 +170,36 @@ class EngineWrapper:
             individual_scores_matrix[row,col] = EngineWrapper.function_F(sizes_vector[row], sizes_vector[col],
                                                                          distances_matrix[row,col])
         overall_score = np.sum(individual_scores_matrix)
-
-
         return overall_score
+
+    def goal_function_convenient(self, distances_matrix: np.ndarray[np.uint32], sizes_vector: np.ndarray[np.uint32],
+                                connections_matrix: np.ndarray[np.bool], max_cost: np.uint64 = None,
+                                max_railway_len: np.uint64 = None, max_connections_count: np.uint32 = None,
+                                one_rail_cost: np.uint32 = None, one_infrastructure_cost: np.uint32 = None) -> np.uint64:
+        """
+        This method calls static method self.goal_achievement_function(...) and passes to it all given parameters.
+        If any of the parameters is None, then it's value is defaulted to the one created during this instance
+        __init__() before being passed further.
+
+        Refer to docs of self.goal_achievement_function for more details.
+
+        :return: effect of call on the underlying self.goal_achievement_function()
+        """
+        max_cost = self.max_cost if max_cost is None else max_cost
+        max_railway_len = self.max_railways_len if max_railway_len is None else max_railway_len
+        max_connections_count = self.max_connections if max_connections_count is None else max_connections_count
+        one_rail_cost = self.one_rail_cost if one_rail_cost is None else one_rail_cost
+        one_infrastructure_cost = self.infrastructure_cost if one_infrastructure_cost is None else one_infrastructure_cost
+
+        return self.goal_achievement_function(distances_matrix, sizes_vector, connections_matrix, max_cost,
+                                              max_railway_len, max_connections_count, one_rail_cost,
+                                              one_infrastructure_cost)
 
 
 if __name__ == "__main__":
     # test block to see if everything works properly. This will never launch if the script is only imported, as it is
     # meant to be. This will be cleaned after completing the whole engine
+    print(20 * "-" + "Static methods check" + 20 * "-")
     dist, sizes = EngineWrapper.generate_random_city_values(np.uint8(5), seed=42, max_city_size=np.uint32(20),
                                                             max_distance=np.uint32(60))
     np.random.seed(42)
@@ -176,4 +216,15 @@ if __name__ == "__main__":
     for num in [1_000, 10_000, 50_000, 100_000, 500_000, 1_000_000, 2_000_000, 2**32 - 1]:
         print(f"F function with sizes=3 for distance {num:_}: {EngineWrapper.function_F(np.uint32(3), np.uint32(3), 
                                                                                         np.uint32(num)):e}")
+
+    print(20 * "-" + "Convenient calls check" + 20 * "-")
+    test_instance = EngineWrapper(cities_amount=np.uint8(5), max_distance=np.uint32(60), max_city_size=np.uint32(20),
+                                  max_cost = np.uint64(2_000_000), max_railway_len=np.uint64(200_000),
+                                  max_connections_count=np.uint32(400), one_rail_cost=np.uint32(15),
+                                  infrastructure_cost=np.uint32(10_009))
+    dist, sizes = test_instance.generate_cities(seed=42)
+    np.random.seed(42)
+    random_connections = np.random.choice([True, False], size=(5, 5))
+    print("goal achievement function for randomly generated inputs:", end = " ")
+    print(test_instance.goal_function_convenient(dist, sizes, random_connections))
 
