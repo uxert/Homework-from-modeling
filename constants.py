@@ -12,3 +12,6 @@ max_connections = config["PARAMETERS"].getint('max_connections_n')
 one_rail_cost = config["PARAMETERS"].getint('one_rail_cost_t')
 max_cost = config["PARAMETERS"].getint('max_budget_P')
 
+max_city_size = config["TECHNICAL_CONSTRAINTS"].getint("max_city_size")
+max_possible_distance = config["TECHNICAL_CONSTRAINTS"].getint("max_possible_distance")
+
