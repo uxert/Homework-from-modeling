@@ -112,7 +112,6 @@ class EngineWrapper:
         distance = distance if distance < max_param_val else max_param_val
 
         # this performs a tanh(distance) * log(size1*size2) function with supremum of max_result_val
-        # money = (np.log(size1) + np.log(size2)) * np.tanh(distance/(10**6)) * (max_result_val / 2*np.log(max_param_val))
         money = (np.log(size1) + np.log(size2))/(2 * np.log(max_param_val)) * np.tanh(distance/(10**6)) * max_result_val
         return money.astype(np.uint64)  # there is absolutely no point in being more precise than an
         # int value, especially since in this case "money" usually is in magnitude of millions or larger
