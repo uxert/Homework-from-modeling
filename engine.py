@@ -4,7 +4,7 @@ being solved
 """
 
 import numpy as np
-from typing import Tuple
+from typing import Tuple, List
 import constants as cn
 
 
@@ -194,6 +194,31 @@ class EngineWrapper:
                                               max_railway_len, max_connections_count, one_rail_cost,
                                               one_infrastructure_cost)
 
+    def _generate_first_population(self, distances_matrix: np.ndarray[np.uint32], sizes_vector: np.ndarray[np.uint32],
+                                   population_size: int,cities_amount: int = None, seed: int = None)\
+        -> List[np.ndarray[np.bool]]:
+        """
+        This function is used to generate the first population for the genetic algorithms. It returns o List of 2D
+        numpy ndarrays. Each element of this list is one connection matrix, which corresponds to one candidate solution.
+        It ensures that every generated candidate on this list is correct (it satisfies all the constraints - has
+        goal_achievement function positive)
+        """
+        rng = np.random.default_rng(seed)
+
+        cities_amount = self.cities_count if cities_amount is None else cities_amount
+        population = []
+        for i in range(population_size):
+            one_candidate = rng.choice([True, False], (cities_amount, cities_amount), p=[0.3, 0.7]).astype(np.bool)
+            population.append(one_candidate)
+            print(one_candidate.dtype)
+            print(type(one_candidate))
+
+        for i in range(population_size):
+            pass
+
+        # noinspection PyTypeChecker
+        return population
+
 
 if __name__ == "__main__":
     # test block to see if everything works properly. This will never launch if the script is only imported, as it is
@@ -227,3 +252,4 @@ if __name__ == "__main__":
     print("goal achievement function for randomly generated inputs:", end = " ")
     print(test_instance.goal_function_convenient(dist, sizes, random_connections))
 
+    print(test_instance._generate_first_population(dist, sizes, 3, 5))
