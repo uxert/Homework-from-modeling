@@ -5,6 +5,7 @@ being solved
 
 import numpy as np
 from typing import Tuple
+from typing import Tuple, List, Literal, Any
 import constants as cn
 
 
@@ -194,6 +195,20 @@ class EngineWrapper:
                                               max_railway_len, max_connections_count, one_rail_cost,
                                               one_infrastructure_cost)
 
+    @staticmethod
+    def symmetrize_numpy_matrix(matrix: np.ndarray, copied_side: Literal["upper","lower"] = "upper") -> np.ndarray|None:
+        """
+        this method takes one matrix and returns symmetric matrix - when copied_side is 'upper' then upper side is
+        copied to the lower side, analogically with copied_side = 'lower'. If provided array has more than 2 dimensions
+        the operation is applied to the final two axes. If provided array has less than 2D None is returned
+        """
+        if matrix.ndim < 2:
+            return None
+        if copied_side == "upper":
+            return np.triu(matrix, k=1).T + np.triu(matrix, k=0)
+        if copied_side == "lower":
+            return np.tril(matrix, k=-1).T + np.tril(matrix, k=0)
+
 
 if __name__ == "__main__":
     # test block to see if everything works properly. This will never launch if the script is only imported, as it is
@@ -226,4 +241,16 @@ if __name__ == "__main__":
     random_connections = np.random.choice([True, False], size=(5, 5))
     print("goal achievement function for randomly generated inputs:", end = " ")
     print(test_instance.goal_function_convenient(dist, sizes, random_connections))
+
+    A = np.random.randint(100, size=(4, 4))
+    print("\nOriginal matrix:")
+    print(A)
+    sym_A = EngineWrapper.symmetrize_numpy_matrix(A, "upper")
+    sym_A_lower = EngineWrapper.symmetrize_numpy_matrix(A, "lower")
+    print("\nSymmetric (upper) matrix:")
+    print(sym_A)
+    print("\nSymmetric (lower) matrix:")
+    print(sym_A_lower)
+    print(f"\nTest - are both matrices symmetrical? {np.array_equal(sym_A, sym_A.T)
+                                                  and np.array_equal(sym_A_lower, sym_A_lower.T)}")
 
