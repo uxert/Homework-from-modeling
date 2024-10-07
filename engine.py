@@ -2,10 +2,11 @@
 this file contains computational backbone of the whole project - here the given optimization problem is actually
 being solved
 """
+from math import ceil
 
 import numpy as np
-from typing import Tuple
 from typing import Tuple, List, Literal, Any
+from numpy import dtype
 import constants as cn
 
 
@@ -209,6 +210,76 @@ class EngineWrapper:
         if copied_side == "lower":
             return np.tril(matrix, k=-1).T + np.tril(matrix, k=0)
 
+    def _generate_one_candidate(self, rng: np.random.Generator, cities_amount: int = None)\
+            -> np.ndarray[Any, dtype[np.bool]]:
+        """This method returns one candidate, i.e. one connection matrix with shape (cities_amount, cities_amount).
+        This matrix is symmetric, and it's diagonal is always False (since a city cannot be connected to itself)"""
+
+        cities_amount = cities_amount if cities_amount is not None else self.cities_count
+        rng = rng if rng is not None else np.random.default_rng()
+        one_candidate = rng.integers(0, 1, size=(cities_amount, cities_amount), dtype=np.bool, endpoint=True)
+        one_candidate = self.symmetrize_numpy_matrix(one_candidate, "upper")
+        np.fill_diagonal(one_candidate, False)
+        return one_candidate
+
+
+    def _check_one_candidate(self, one_candidate: np.ndarray[np.bool],
+                             distances_matrix: np.ndarray[np.uint32], sizes_vector: np.ndarray[np.uint32],
+                             rng: np.random.Generator, prune_factor = 0.2) -> np.ndarray[np.bool] | None:
+        """
+        This method checks whether the candidate satisfies all the constraints, like max_connections or fitting inside
+        the budget. If it does not satisfy the constraints connections are randomly removed until this solution
+        has positive goal achievement function. If it is not achieved before there are no connections left, returns None
+
+        :param prune_factor: This float represents how many connections are removed with each subsequent iteration.
+            Setting it to higher values will result in less computation required to generate a population (fewer
+            iterations) but will result in over-pruned solutions having generally fewer connections than they could.
+        """
+        while self.goal_function_convenient(distances_matrix, sizes_vector, one_candidate) < 1:
+            connections = np.nonzero(np.triu(one_candidate, k=1))  # k can be both 0 and 1, diagonal is always False
+            connections_amount = len(connections[0])
+            if connections_amount <= 1:  # if there is one connection there will be none after removing
+                return None
+            removed_connections_amount = ceil(prune_factor * connections_amount) # ceil so that it is always at least 1
+            removed_connections = rng.integers(connections_amount, size=(removed_connections_amount,))
+
+            for removed_connection_idx in removed_connections:
+                row, column = connections[0][removed_connection_idx], connections[1][removed_connection_idx]
+                one_candidate[row, column] = False
+
+            one_candidate = self.symmetrize_numpy_matrix(one_candidate, "upper") # the side has to be upper
+            # because connections were taken from np.triu(one_candidate)
+        return one_candidate
+
+    def _generate_first_population(self, distances_matrix: np.ndarray[np.uint32], sizes_vector: np.ndarray[np.uint32],
+                                   population_size: int, cities_amount: int = None,
+                                   rng: np.random.Generator = None) -> List[np.ndarray[np.bool]]:
+        """
+        This function is used to generate the first population for the genetic algorithms. It returns o List of 2D
+        numpy ndarrays. Each element of this list is one connection matrix, which corresponds to one candidate solution.
+        It ensures that every generated candidate on this list is correct (it satisfies all the constraints - has
+        goal_achievement function positive)
+        """
+        rng = np.random.default_rng() if rng is None else rng
+        cities_amount = self.cities_count if cities_amount is None else cities_amount
+        population = []
+        for i in range(population_size):
+            one_candidate = self._generate_one_candidate(rng, cities_amount)
+            one_candidate = self._check_one_candidate(one_candidate, distances_matrix, sizes_vector, rng)
+            population.append(one_candidate)
+
+        #now it needs to check, if there are no None candidates - solutions, that did not pass the constraints check
+        for i, elem in enumerate(population):
+            if elem is not None:
+                continue
+            new_elem = None
+            while new_elem is None:
+                new_elem = self._generate_one_candidate(rng, cities_amount)
+                new_elem = self._check_one_candidate(new_elem, distances_matrix, sizes_vector, rng)
+            population[i] = new_elem
+        # noinspection PyTypeChecker
+        return population
+
 
 if __name__ == "__main__":
     # test block to see if everything works properly. This will never launch if the script is only imported, as it is
@@ -253,4 +324,16 @@ if __name__ == "__main__":
     print(sym_A_lower)
     print(f"\nTest - are both matrices symmetrical? {np.array_equal(sym_A, sym_A.T)
                                                   and np.array_equal(sym_A_lower, sym_A_lower.T)}")
+
+    print("\n" + 20 * "-" + "Test of generating the first population" + 20 * "-")
+    rng = np.random.default_rng(42)
+    cities_amount = 255
+    dist, sizes = test_instance.generate_cities(seed=42, cities_amount=cities_amount)
+    temp = test_instance._generate_first_population(dist, sizes, population_size=100, cities_amount=np.uint8(cities_amount), rng=rng)
+    all_solutions_valid = True
+    for elem in temp:
+        if elem is None:
+            all_solutions_valid = False
+            break
+    print(f"Test - are all {100} generated solutions valid?: {all_solutions_valid}")
 
