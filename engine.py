@@ -6,7 +6,7 @@ from math import ceil
 
 import numpy as np
 from typing import Tuple, List, Literal, Any
-from numpy import dtype
+from numpy import dtype, ndarray
 import constants as cn
 
 
@@ -280,6 +280,48 @@ class EngineWrapper:
         # noinspection PyTypeChecker
         return population
 
+    def _select_parents_tournament(self, goal_scores: np.array, one_fight_size: int = 3,
+                                   excluded_candidates: int = 3, rng: np.random.Generator = None) -> ndarray | None:
+        """
+        This method takes a 1D numpy ndarray with scores and performs tournament selection, then returns indexes of
+            elements from the scores array that 'passed' the tournament
+        :param goal_scores: 1D numpy array containing scores. Will return None if the array is not 1D
+        :param one_fight_size: How many solutions are in one tournament group. Only the best one from each group
+            will be selected, others are forgotten forever...
+        :param excluded_candidates: How many best solutions are excluded from the tournament. These candidates do not
+            take part in the tournament at all, meaning no solution will be 'killed' simply because it was worse in
+            comparison.
+        :param rng: Numpy random.Generator instance. It is used to 'randomly' divide solutions into tournament groups.
+            Passing identical instance of the generator (WITH EXACTLY THE SAME STATE - watch for earlier uses of passed
+            rng!) will ensure reproducibility.
+        :return: Numpy ndarray containing indexes of chosen parents. Indexing the array used to create `goal_scores`
+            with this returned array will give the chosen solutions
+        """
+        if goal_scores.ndim != 1:
+            return None
+        rng = np.random.default_rng() if rng is None else rng
+        sorted_scores_idx = np.argsort(goal_scores)[::-1]  # oddly specific comment about the need to reverse the
+        # argsort()'s result since it is sorting in ascending order...
+        winners = []
+        for i in range(excluded_candidates):
+            winners.append(sorted_scores_idx[i])
+        indexes = rng.permutation(np.arange(start=excluded_candidates, stop=len(goal_scores)))
+        # indexes = np.array_split(np.array(indexes),
+        #                          indices_or_sections=(len(goal_scores) - guaranteed_survivors)// tournament_size + 1)
+        tournament_scores = [goal_scores[i] for i in indexes]
+
+        indexes = np.array_split(np.array(indexes),
+                                 indices_or_sections=(len(goal_scores) - excluded_candidates) // one_fight_size + 1)
+
+        tournament_scores = np.array_split(np.array(tournament_scores),
+                                           indices_or_sections=(len(goal_scores) - excluded_candidates) // one_fight_size + 1)
+
+        tournament_winners_positions = [np.argmax(one_fight) for one_fight in tournament_scores]
+        for fight_no, winner in enumerate(tournament_winners_positions):
+            winners.append(indexes[fight_no][winner])
+
+        return np.array(winners)
+
 
 if __name__ == "__main__":
     # test block to see if everything works properly. This will never launch if the script is only imported, as it is
@@ -325,6 +367,9 @@ if __name__ == "__main__":
     print(f"\nTest - are both matrices symmetrical? {np.array_equal(sym_A, sym_A.T)
                                                   and np.array_equal(sym_A_lower, sym_A_lower.T)}")
 
+    my_rng = np.random.default_rng(42)
+    my_cities_amount = 255
+    dist, sizes = test_instance.generate_cities(seed=42, cities_amount=np.uint8(my_cities_amount))
     print("\n" + 20 * "-" + "Test of generating the first population" + 20 * "-")
     rng = np.random.default_rng(42)
     cities_amount = 255
@@ -336,4 +381,11 @@ if __name__ == "__main__":
             all_solutions_valid = False
             break
     print(f"Test - are all {100} generated solutions valid?: {all_solutions_valid}")
+    temp_scores = np.array([test_instance.goal_function_convenient(dist, sizes, one_candidate) for one_candidate in temp])
+    winning_parents_indexes = test_instance._select_parents_tournament(temp_scores, rng=my_rng, excluded_candidates=3)
+    print(f"temp scores:\n{temp_scores}")
+    print(f"{3} biggest scores: {temp_scores[winning_parents_indexes[0:3]]}")
+    print(winning_parents_indexes)
+
+
 
