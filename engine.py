@@ -335,7 +335,8 @@ class EngineWrapper:
         child = np.where(child_indexes == 0, a, b)
         return child
 
-    def crossover(self, parents: np.ndarray, offspring_count: int, rng: np.random.Generator = None)\
+    @staticmethod
+    def crossover(parents: np.ndarray, offspring_count: int, rng: np.random.Generator = None)\
             -> np.ndarray:
         """
         This function takes a 3D numpy ndarray with shape (parents_count, (...)) and returns another 3D ndarray of shape
