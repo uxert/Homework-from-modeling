@@ -212,15 +212,14 @@ class EngineWrapper:
         if copied_side == "lower":
             return np.tril(matrix, k=-1).swapaxes(-1, -2) + np.tril(matrix, k=0)
 
-    def _generate_one_candidate(self, rng: np.random.Generator, cities_amount: int = None)\
-            -> np.ndarray[Any, dtype[np.bool]]:
+    @staticmethod
+    def generate_one_candidate(rng: np.random.Generator, cities_amount) -> np.ndarray[Any, dtype[np.bool]]:
         """This method returns one candidate, i.e. one connection matrix with shape (cities_amount, cities_amount).
         This matrix is symmetric, and it's diagonal is always False (since a city cannot be connected to itself)"""
 
-        cities_amount = cities_amount if cities_amount is not None else self.cities_count
         rng = rng if rng is not None else np.random.default_rng()
         one_candidate = rng.integers(0, 1, size=(cities_amount, cities_amount), dtype=np.bool, endpoint=True)
-        one_candidate = self.symmetrize_numpy_matrix(one_candidate, "upper")
+        one_candidate = EngineWrapper.symmetrize_numpy_matrix(one_candidate, "upper")
         np.fill_diagonal(one_candidate, False)
         return one_candidate
 
@@ -266,7 +265,7 @@ class EngineWrapper:
         cities_amount = self.cities_count if cities_amount is None else cities_amount
         population = []
         for i in range(population_size):
-            one_candidate = self._generate_one_candidate(rng, cities_amount)
+            one_candidate = self.generate_one_candidate(rng, cities_amount)
             one_candidate = self._check_one_candidate(one_candidate, distances_matrix, sizes_vector, rng)
             population.append(one_candidate)
 
@@ -276,14 +275,15 @@ class EngineWrapper:
                 continue
             new_elem = None
             while new_elem is None:
-                new_elem = self._generate_one_candidate(rng, cities_amount)
+                new_elem = self.generate_one_candidate(rng, cities_amount)
                 new_elem = self._check_one_candidate(new_elem, distances_matrix, sizes_vector, rng)
             population[i] = new_elem
         # noinspection PyTypeChecker
         return population
 
-    def _select_parents_tournament(self, goal_scores: np.array, one_fight_size: int = 3,
-                                   excluded_candidates: int = 3, rng: np.random.Generator = None) -> ndarray | None:
+    @staticmethod
+    def select_parents_tournament(goal_scores: np.array, one_fight_size: int = 3,
+                                  excluded_candidates: int = 3, rng: np.random.Generator = None) -> ndarray | None:
         """
         This method takes a 1D numpy ndarray with scores and performs tournament selection, then returns indexes of
             elements from the scores array that 'passed' the tournament
@@ -419,7 +419,7 @@ if __name__ == "__main__":
             break
     print(f"Test - are all {100} generated solutions valid?: {all_solutions_valid}")
     temp_scores = np.array([test_instance.goal_function_convenient(dist, sizes, one_candidate) for one_candidate in temp])
-    winning_parents_indexes = test_instance._select_parents_tournament(temp_scores, rng=my_rng, excluded_candidates=3)
+    winning_parents_indexes = test_instance.select_parents_tournament(temp_scores, rng=my_rng, excluded_candidates=3)
     print(f"temp scores:\n{temp_scores}")
     print(f"{3} biggest scores: {temp_scores[winning_parents_indexes[0:3]]}")
     print(winning_parents_indexes)
