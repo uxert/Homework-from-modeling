@@ -204,11 +204,13 @@ class EngineWrapper:
         the operation is applied to the final two axes. If provided array has less than 2D None is returned
         """
         if matrix.ndim < 2:
-            return None
+            raise ValueError(f"An array to symmetrize needs to have at least 2 dimensions, got {matrix.ndim} instead")
+        if matrix.shape[-1] != matrix.shape[-2]:
+            raise ValueError(f"Final two dimensions need to have the same size, got ({matrix.shape[-1]}, {matrix.shape[-2]}) instead")
         if copied_side == "upper":
-            return np.triu(matrix, k=1).T + np.triu(matrix, k=0)
+            return np.triu(matrix, k=1).swapaxes(-1, -2) + np.triu(matrix, k=0)
         if copied_side == "lower":
-            return np.tril(matrix, k=-1).T + np.tril(matrix, k=0)
+            return np.tril(matrix, k=-1).swapaxes(-1, -2) + np.tril(matrix, k=0)
 
     def _generate_one_candidate(self, rng: np.random.Generator, cities_amount: int = None)\
             -> np.ndarray[Any, dtype[np.bool]]:
