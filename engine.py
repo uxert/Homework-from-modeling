@@ -355,7 +355,6 @@ class EngineWrapper:
         offspring[0:parents_amount, :, :] = parents
         rng = np.random.default_rng() if rng is None else rng
         for i in range(offspring_count):
-            print(rng.bit_generator.__getstate__())
             indexes = rng.choice(len(parents), size=(2,), replace=False)
             chosen_parents = parents[indexes]
             one_child = EngineWrapper.random_choose_2_arrays(chosen_parents[0], chosen_parents[1], rng)
