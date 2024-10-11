@@ -322,6 +322,44 @@ class EngineWrapper:
 
         return np.array(winners)
 
+    @staticmethod
+    def random_choose_2_arrays(a: np.ndarray, b: np.ndarray, rng: np.random.Generator = None) -> np.ndarray:
+        """Takes two ndarrays of the same shape and returns another ndarray of the same shape that has
+        its elements randomly chosen from `a` and `b`"""
+        if a.shape != b.shape:
+            raise ValueError(f"Random choose from 2 arrays expected the arrays to have the same shape, got {a.shape} and {b.shape} instead")
+        rng = rng if rng is not None else np.random.default_rng()
+        child_indexes = rng.integers(0, 1, size=a.shape, endpoint=True)
+        child = np.where(child_indexes == 0, a, b)
+        return child
+
+    def crossover(self, parents: np.ndarray, offspring_count: int, rng: np.random.Generator = None)\
+            -> np.ndarray:
+        """
+        This function takes a 3D numpy ndarray with shape (parents_count, (...)) and returns another 3D ndarray of shape
+        (parents_count + offspring_count, (...)) in which first parents_count entries are just copied from `parents`
+        and every next entry is a 'child' - an array with elements randomly chosen from two random 'parents'.
+
+        :param parents: Numpy ndarray containing exactly 3 dimensions where the first (i.e. shape[0]) dimension represents
+            the batch size
+        :param offspring_count: How many additional children will be created
+        :param rng: If provided the output of this function is fully reproducible
+        """
+        if parents.ndim != 3:  # batch of 2D connection matrices is expected
+            raise ValueError(f"Crossover expected a np.ndarray with exactly 3 dimensions, got {parents.ndim} instead")
+        parents_amount = parents.shape[0]
+        cities_amount = parents.shape[1]
+        offspring = np.empty((parents_amount + offspring_count, cities_amount, cities_amount), dtype=parents.dtype)
+        offspring[0:parents_amount, :, :] = parents
+        rng = np.random.default_rng() if rng is None else rng
+        for i in range(offspring_count):
+            print(rng.bit_generator.__getstate__())
+            indexes = rng.choice(len(parents), size=(2,), replace=False)
+            chosen_parents = parents[indexes]
+            one_child = EngineWrapper.random_choose_2_arrays(chosen_parents[0], chosen_parents[1], rng)
+            offspring[i + parents_amount, :, :] = one_child
+        return offspring
+
 
 if __name__ == "__main__":
     # test block to see if everything works properly. This will never launch if the script is only imported, as it is
@@ -371,10 +409,7 @@ if __name__ == "__main__":
     my_cities_amount = 255
     dist, sizes = test_instance.generate_cities(seed=42, cities_amount=np.uint8(my_cities_amount))
     print("\n" + 20 * "-" + "Test of generating the first population" + 20 * "-")
-    rng = np.random.default_rng(42)
-    cities_amount = 255
-    dist, sizes = test_instance.generate_cities(seed=42, cities_amount=cities_amount)
-    temp = test_instance._generate_first_population(dist, sizes, population_size=100, cities_amount=np.uint8(cities_amount), rng=rng)
+    temp = test_instance._generate_first_population(dist, sizes, population_size=100, cities_amount=np.uint8(my_cities_amount), rng=my_rng)
     all_solutions_valid = True
     for elem in temp:
         if elem is None:
@@ -387,5 +422,9 @@ if __name__ == "__main__":
     print(f"{3} biggest scores: {temp_scores[winning_parents_indexes[0:3]]}")
     print(winning_parents_indexes)
 
-
+    print(20 * "-" + 'Crossover test' + 20 * "-")
+    A = np.arange(-9, 0).reshape(3,3)
+    B = np.arange(0, 9).reshape(3,3)
+    C = np.arange(100, 109).reshape(3,3)
+    print(test_instance.crossover(np.stack([A,B,C], axis=0), offspring_count=4, rng=my_rng))
 
