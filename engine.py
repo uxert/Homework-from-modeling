@@ -385,6 +385,47 @@ class EngineWrapper:
         arr[flipped_mask] = np.logical_not(arr[flipped_mask])
         return arr
 
+    def genetic_algorithm(self, distances_matrix: np.ndarray[np.uint32], sizes_vector: np.ndarray[np.uint32],
+                          initial_population: np.ndarray[np.bool] = None, population_size = 100, seed = None,
+                          rng: np.random.Generator = None, iterations = 100, mutation_chance = 0.005)\
+            -> np.ndarray[np.bool]:
+        """
+        This function performs a genetic algorithm for given amount of iterations. Distances matrix and sizes vector
+        need to have appropriate shapes, i.e. (cities_amount, cities_amount) and (cities_amount,) respectively.
+        Cities amount is not passed directly, but rather inferred from the aforementioned ndarrays.
+        If initial population is not provided, one will be randomly generated using provided rng. If rng is not provided
+        new one will be created from given seed.
+        :param distances_matrix: A square, symmetrical matrix representing distances between cities.
+        :param sizes_vector: A 1D ndarray representing the size of each city.
+        :param initial_population: A 3D numpy ndarray where the first (i.e. '0-th') dimension is a batch dimension.
+            Each element represents one 2D connection matrix (for more details refer to goal_achievement_function().
+            Datatype of this array has to be np.bool. Each connection matrix has the same shape as distances_matrix
+        :param population_size: Used to determine the size of newly created population. Ignored if initial_population is
+            provided.
+        :param seed: Used to create new random Generator. Ignored if rng is provided. If neither is provided then
+            a Generator with fresh, unpredictable entropy will be created.
+        :param rng: Allows for full control over every randomness used in this function, passing the same generator
+            (and in the exact same state!) guarantees complete reproducibility
+        :param mutation_chance: Used during the mutation phase of the algorithm - represents a chance for each element
+            of connection matrix to be logically flipped (create connection/remove connection). Bigger values will
+            aid in overcoming local maximum but setting this value too big will result in instability of the algorithm.
+        :return: the best found solution
+        """
+        rng = rng if rng is not None else np.random.default_rng(seed)
+        if distances_matrix.shape[0] != distances_matrix.shape[1] != sizes_vector.shape[0]:
+            err_shape_mismatch = f"Distances_matrix and sizes_vector do not have matching shapes, cannot establish one"\
+                             f" cities_amount. Received shapes {distances_matrix.shape} and {sizes_vector.shape}"
+            raise ValueError(err_shape_mismatch)
+        if initial_population is not None and initial_population.dtype != np.bool:
+            raise ValueError(f"Initial population must be boolean, got datatype {initial_population.dtype} instead")
+
+        cities_amount = distances_matrix.shape[0]
+        if initial_population is None:
+            initial_population = self._generate_first_population(distances_matrix, sizes_vector, population_size,
+                                                                 cities_amount, rng=rng)
+
+
+
 
 if __name__ == "__main__":
     # test block to see if everything works properly. This will never launch if the script is only imported, as it is
