@@ -136,6 +136,19 @@ class EngineWrapper:
              returns exactly 0. Otherwise, it returns one positive integer representing a value of this solution -
              the bigger, the better
         """
+        if distances_matrix.ndim != 2 or distances_matrix.shape[0] != distances_matrix.shape[1]:
+            raise ValueError(f"distances_matrix should be a 2-dimensional square numpy ndarray, got shape "
+                             f"({distances_matrix.shape}) instead")
+        if sizes_vector.ndim != 1:
+            raise ValueError(f"sizes_vector should be a 1D numpy ndarray, instead got shape ({sizes_vector.shape})")
+        if sizes_vector.shape[0] != distances_matrix.shape[0]:
+            err_shapes_mismatch = f"Distances_matrix and sizes_vector do not have matching shapes, received "\
+                                f"distances_matrix: ({distances_matrix.shape}) and sizes_vector: ({sizes_vector.shape})"
+            raise ValueError(err_shapes_mismatch)
+        if connections_matrix.shape != distances_matrix.shape:
+            err_shape_mismatch = (f"shape of connections_matrix: {connections_matrix.shape} does not match with the "
+                                  f"shape of distances_matrix: {distances_matrix.shape}")
+            raise ValueError(err_shape_mismatch)
         # first checks for max number of connections, as it requires basically no computation
         connections_count = np.uint32(np.count_nonzero(connections_matrix)) // 2
         # needs to be divided by 2 due to the nature of the connections' matrix. Thanks to numpy vectorization looping over
