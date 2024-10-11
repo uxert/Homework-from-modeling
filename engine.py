@@ -362,6 +362,16 @@ class EngineWrapper:
             offspring[i + parents_amount, :, :] = one_child
         return offspring
 
+    @staticmethod
+    def mutate_bool_ndarray(arr: ndarray[Any, dtype[np.bool]], mutation_chance = 1e-2,rng: np.random.Generator = None)\
+        -> ndarray[Any, dtype[np.bool]]:
+        """This method takes a numpy ndarray of any shape and of np.bool datatype. Each element in this array has
+        a mutation_chance chance to be logically flipped"""
+        rng = rng if rng is not None else np.random.default_rng()
+        flipped_mask = rng.choice([True, False], size=arr.shape, p=[mutation_chance, 1 - mutation_chance])
+        arr[flipped_mask] = np.logical_not(arr[flipped_mask])
+        return arr
+
 
 if __name__ == "__main__":
     # test block to see if everything works properly. This will never launch if the script is only imported, as it is
@@ -430,3 +440,8 @@ if __name__ == "__main__":
     C = np.arange(100, 109).reshape(3,3)
     print(test_instance.crossover(np.stack([A,B,C], axis=0), offspring_count=4, rng=my_rng))
 
+    print(20 * "-" + "mutation test" + 20 * "-")
+    D = np.zeros(shape=(15, 10), dtype=np.bool)
+    mutated_D = EngineWrapper.mutate_bool_ndarray(D, mutation_chance=0.1, rng=my_rng)
+    print(D)
+    print(f"Mutated {np.count_nonzero(mutated_D)} out of {np.size(mutated_D)} elements")
