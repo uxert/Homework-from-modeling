@@ -5,7 +5,8 @@ being solved
 from math import ceil
 
 import numpy as np
-from typing import Tuple, List, Literal, Any
+from typing import Tuple, List, Literal, Any, Union
+import itertools
 from numpy import dtype, ndarray
 import constants as cn
 
@@ -189,25 +190,57 @@ class EngineWrapper:
     def goal_function_convenient(self, distances_matrix: np.ndarray[np.uint32], sizes_vector: np.ndarray[np.uint32],
                                 connections_matrix: np.ndarray[np.bool], max_cost: np.uint64 = None,
                                 max_railway_len: np.uint64 = None, max_connections_count: np.uint32 = None,
-                                one_rail_cost: np.uint32 = None, one_infrastructure_cost: np.uint32 = None) -> np.uint64:
+                                one_rail_cost: np.uint32 = None, one_infrastructure_cost: np.uint32 = None)\
+            -> Union[np.uint64, np.ndarray[np.uint64]]:
         """
         This method calls static method self.goal_achievement_function(...) and passes to it all given parameters.
         If any of the parameters is None, then it's value is defaulted to the one created during this instance
         __init__() before being passed further.
 
+        Connections matrix can have more than two dimensions. If so,it is interpreted as a batch
+        of 2D connection matrices (two final dimensions are interpreted as connection matrices)
+
         Refer to docs of self.goal_achievement_function for more details.
 
-        :return: effect of call on the underlying self.goal_achievement_function()
+        :param connections_matrix: 2 (or more) dimensional ndarray. If two-dimensional it is simply passed to the
+            self.goal_achievement_function(...). If more than 2D it is interpreted as a batch and each connection matrix
+            is passed individually, For example, if an array of shape (7, 15, 15) is provided then the underlying
+            goal_achievement_function() will be called 7 times, each time with 15 x 15 connection matrix.
+
+        :return: effect of call on the underlying self.goal_achievement_function(). If one connection matrix was provided
+            a scalar is returned. If a whole batch was provided then returns an array with the last two dimensions
+            reduced
         """
+        if connections_matrix.ndim < 2:
+            err_wrong_shape = (f"Connection matrix has to contain at least two dimensions (more if a batch), but array "
+                               f"of shape {connections_matrix.shape} was provided")
+            raise ValueError(err_wrong_shape)
         max_cost = self.max_cost if max_cost is None else max_cost
         max_railway_len = self.max_railways_len if max_railway_len is None else max_railway_len
         max_connections_count = self.max_connections if max_connections_count is None else max_connections_count
         one_rail_cost = self.one_rail_cost if one_rail_cost is None else one_rail_cost
         one_infrastructure_cost = self.infrastructure_cost if one_infrastructure_cost is None else one_infrastructure_cost
 
-        return self.goal_achievement_function(distances_matrix, sizes_vector, connections_matrix, max_cost,
+        if connections_matrix.ndim == 2:
+            return self.goal_achievement_function(distances_matrix, sizes_vector, connections_matrix, max_cost,
                                               max_railway_len, max_connections_count, one_rail_cost,
                                               one_infrastructure_cost)
+
+        if connections_matrix.ndim > 2:
+            resulting_arr = np.zeros(shape=connections_matrix.shape[:-2], dtype=np.uint64)  # reduces last 2 dimensions
+
+            # unfortunately I did not find an easy way to do this with numpy, so we will perform slow python instead :)
+            all_indexes = itertools.product(*[range(dim) for dim in resulting_arr.shape])
+            for index in all_indexes:
+                one_connection_matrix = connections_matrix[index]
+                one_goal_result = self.goal_achievement_function(distances_matrix, sizes_vector, one_connection_matrix,
+                                                                 max_cost,max_railway_len, max_connections_count,
+                                                                 one_rail_cost,one_infrastructure_cost)
+                resulting_arr[index] = one_goal_result
+
+            # noinspection PyTypeChecker
+            return resulting_arr
+
 
     @staticmethod
     def symmetrize_numpy_matrix(matrix: np.ndarray, copied_side: Literal["upper","lower"] = "upper") -> np.ndarray|None:
