@@ -457,78 +457,40 @@ class EngineWrapper:
             initial_population = self._generate_first_population(distances_matrix, sizes_vector, population_size,
                                                                  cities_amount, rng=rng)
 
+        offspring = np.array(initial_population, dtype=np.bool)
+        next_goal_achievement = self.goal_function_convenient(distances_matrix, sizes_vector, offspring)
+        for iteration in range(iterations):
+            goal_achievement = next_goal_achievement
+            population = offspring
+            parents_indexes = self.select_parents_tournament(goal_achievement,excluded_candidates=1, rng=rng)
+            chosen_parents = population[parents_indexes]
+            offspring_size = len(population) - len(chosen_parents)
+            offspring = self.crossover(chosen_parents, offspring_size, rng=rng)
+            offspring = self.mutate_bool_ndarray(offspring, mutation_chance, rng=rng)
+            offspring = self.symmetrize_numpy_matrix(offspring, "upper")
+
+            next_goal_achievement = self.goal_function_convenient(distances_matrix, sizes_vector, population)
+            print(f"Generation {iteration}, best solution fittness: {np.max(next_goal_achievement)}")
+
+        return offspring
+
 
 
 
 if __name__ == "__main__":
     # test block to see if everything works properly. This will never launch if the script is only imported, as it is
     # meant to be. This will be cleaned after completing the whole engine
-    print(20 * "-" + "Static methods check" + 20 * "-")
-    dist, sizes = EngineWrapper.generate_random_city_values(np.uint8(5), seed=42, max_city_size=np.uint32(20),
-                                                            max_distance=np.uint32(60))
-    np.random.seed(42)
-    random_connections = np.random.choice([True, False], size=(5, 5))
-    print("goal achievement function for randomly generated inputs:", end = " ")
-    print(EngineWrapper.goal_achievement_function(dist, sizes, random_connections, np.uint64(2_000_000),
-                                    np.uint64(200000), np.uint32(400),
-                                    np.uint32(15), np.uint32(10_009)))
-    test_max_result_val = np.float64(5e10)
-    result_for_max_params = EngineWrapper.function_F(np.uint32(2 ** 32 - 1), np.uint32(2 ** 32 - 1), np.uint32(2 ** 32 - 1),
-                                       max_result_val=test_max_result_val)
-    print(f"max F function val: {result_for_max_params:e}")
-    print(f"max F function difference from given max_val: {result_for_max_params - 5e10:e}")
-    for num in [1_000, 10_000, 50_000, 100_000, 500_000, 1_000_000, 2_000_000, 2**32 - 1]:
-        print(f"F function with sizes=3 for distance {num:_}: {EngineWrapper.function_F(np.uint32(3), np.uint32(3), 
-                                                                                        np.uint32(num)):e}")
-
-    print(20 * "-" + "Convenient calls check" + 20 * "-")
-    test_instance = EngineWrapper(cities_amount=np.uint8(5), max_distance=np.uint32(60), max_city_size=np.uint32(20),
-                                  max_cost = np.uint64(2_000_000), max_railway_len=np.uint64(200_000),
-                                  max_connections_count=np.uint32(400), one_rail_cost=np.uint32(15),
-                                  infrastructure_cost=np.uint32(10_009))
-    dist, sizes = test_instance.generate_cities(seed=42)
-    np.random.seed(42)
-    random_connections = np.random.choice([True, False], size=(5, 5))
-    print("goal achievement function for randomly generated inputs:", end = " ")
-    print(test_instance.goal_function_convenient(dist, sizes, random_connections))
-
-    A = np.random.randint(100, size=(4, 4))
-    print("\nOriginal matrix:")
-    print(A)
-    sym_A = EngineWrapper.symmetrize_numpy_matrix(A, "upper")
-    sym_A_lower = EngineWrapper.symmetrize_numpy_matrix(A, "lower")
-    print("\nSymmetric (upper) matrix:")
-    print(sym_A)
-    print("\nSymmetric (lower) matrix:")
-    print(sym_A_lower)
-    print(f"\nTest - are both matrices symmetrical? {np.array_equal(sym_A, sym_A.T)
-                                                  and np.array_equal(sym_A_lower, sym_A_lower.T)}")
-
+    print(20 * "-" + "Genetic Algorithm test" + 20 * "-")
     my_rng = np.random.default_rng(42)
-    my_cities_amount = 255
-    dist, sizes = test_instance.generate_cities(seed=42, cities_amount=np.uint8(my_cities_amount))
-    print("\n" + 20 * "-" + "Test of generating the first population" + 20 * "-")
-    temp = test_instance._generate_first_population(dist, sizes, population_size=100, cities_amount=np.uint8(my_cities_amount), rng=my_rng)
-    all_solutions_valid = True
-    for elem in temp:
-        if elem is None:
-            all_solutions_valid = False
-            break
-    print(f"Test - are all {100} generated solutions valid?: {all_solutions_valid}")
-    temp_scores = np.array([test_instance.goal_function_convenient(dist, sizes, one_candidate) for one_candidate in temp])
-    winning_parents_indexes = test_instance.select_parents_tournament(temp_scores, rng=my_rng, excluded_candidates=3)
-    print(f"temp scores:\n{temp_scores}")
-    print(f"{3} biggest scores: {temp_scores[winning_parents_indexes[0:3]]}")
-    print(winning_parents_indexes)
-
-    print(20 * "-" + 'Crossover test' + 20 * "-")
-    A = np.arange(-9, 0).reshape(3,3)
-    B = np.arange(0, 9).reshape(3,3)
-    C = np.arange(100, 109).reshape(3,3)
-    print(test_instance.crossover(np.stack([A,B,C], axis=0), offspring_count=4, rng=my_rng))
-
-    print(20 * "-" + "mutation test" + 20 * "-")
-    D = np.zeros(shape=(15, 10), dtype=np.bool)
-    mutated_D = EngineWrapper.mutate_bool_ndarray(D, mutation_chance=0.1, rng=my_rng)
-    print(D)
-    print(f"Mutated {np.count_nonzero(mutated_D)} out of {np.size(mutated_D)} elements")
+    test_instance = EngineWrapper(cities_amount=np.uint8(30), max_distance=np.uint32(500), max_city_size=np.uint32(500),
+                                  max_cost = np.uint64(4_000_000), max_railway_len=np.uint64(200_000),
+                                  max_connections_count=np.uint32(200), one_rail_cost=np.uint32(100),
+                                  infrastructure_cost=np.uint32(10000))
+    dist, sizes = test_instance.generate_cities(seed=42)
+    last_population = test_instance.genetic_algorithm(distances_matrix=dist, sizes_vector=sizes, rng=my_rng)
+    temp = input("\nDo you wish to print all the solutions (y/n)? ")
+    if temp.lower() == "y":
+        with np.printoptions(threshold=np.inf):
+            for solution in last_population.astype(np.ushort):  # changed to integer type for more concise printing
+                print(solution)
+                print("\n")
