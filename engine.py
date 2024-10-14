@@ -408,14 +408,37 @@ class EngineWrapper:
         return offspring
 
     @staticmethod
-    def mutate_bool_ndarray(arr: ndarray[Any, dtype[np.bool]], mutation_chance = 1e-2,rng: np.random.Generator = None)\
-        -> ndarray[Any, dtype[np.bool]]:
-        """This method takes a numpy ndarray of any shape and of np.bool datatype. Each element in this array has
-        a mutation_chance chance to be logically flipped"""
+    def mutate_bool_ndarray(arr: ndarray[Any, dtype[np.bool]], mutation_chance = 1e-2,rng: np.random.Generator = None,
+                            spare_indexes: ndarray = None, create_copy: bool = False) -> ndarray[Any, dtype[np.bool]]:
+        """
+        This method takes a numpy ndarray of any shape and of np.bool datatype. Each element in this array has
+        a `mutation_chance` chance to be logically flipped. Optionally `spare_indexes` can be provided to locally
+        prevent mutations, which is necessary to establish elitism. If `create_copy` is provided this function will
+         not make any modifications on the original and return a new array instead.
+
+        :param spare_indexes: If boolean - Ndarray with exactly the same shape as `arr`. If an element of this array is
+            True then the value with the same index in `arr` is guaranteed to NOT be mutated. If integers - 1D ndarray
+            containing indexes which will NOT be mutated. Integers allow only to index the 0-th dimension - if more
+            precision is required, use an array of booleans
+            """
+
+        if spare_indexes is not None and spare_indexes.dtype == np.bool and spare_indexes.shape != arr.shape:
+            err_shape_mismatch_message = (f"boolean spare_indexes need to have the same shape as `arr`, but received "
+                                          f"shapes {arr.shape} and {spare_indexes.shape}")
+            raise ValueError(err_shape_mismatch_message)
+        if spare_indexes is not None and np.issubdtype(spare_indexes.dtype, np.integer) and spare_indexes.ndim != 1:
+            err_dim_mismatch_message = (f"integer spare_indexes need to be exactly one-dimensional, but an array with"
+                                        f"{spare_indexes.ndim} dimensions was provided")
+            raise ValueError(err_dim_mismatch_message)
+
+        new_arr = arr.copy() if create_copy else arr
+
         rng = rng if rng is not None else np.random.default_rng()
         flipped_mask = rng.choice([True, False], size=arr.shape, p=[mutation_chance, 1 - mutation_chance])
-        arr[flipped_mask] = np.logical_not(arr[flipped_mask])
-        return arr
+        if spare_indexes is not None:
+            flipped_mask[spare_indexes] = False
+        new_arr[flipped_mask] = np.logical_not(new_arr[flipped_mask])
+        return new_arr
 
     def genetic_algorithm(self, distances_matrix: np.ndarray[np.uint32], sizes_vector: np.ndarray[np.uint32],
                           initial_population: np.ndarray[np.bool] = None, population_size = 100, seed = None,
