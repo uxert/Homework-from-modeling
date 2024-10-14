@@ -442,8 +442,8 @@ class EngineWrapper:
 
     def genetic_algorithm(self, distances_matrix: np.ndarray[np.uint32], sizes_vector: np.ndarray[np.uint32],
                           initial_population: np.ndarray[np.bool] = None, population_size = 100, seed = None,
-                          rng: np.random.Generator = None, iterations = 100, mutation_chance = 0.005)\
-            -> np.ndarray[np.bool]:
+                          rng: np.random.Generator = None, iterations = 100, mutation_chance = 0.005,
+                          guaranteed_elites: int = 1) -> np.ndarray[np.bool]:
         """
         This function performs a genetic algorithm for given amount of iterations. Distances matrix and sizes vector
         need to have appropriate shapes, i.e. (cities_amount, cities_amount) and (cities_amount,) respectively.
@@ -464,6 +464,9 @@ class EngineWrapper:
         :param mutation_chance: Used during the mutation phase of the algorithm - represents a chance for each element
             of connection matrix to be logically flipped (create connection/remove connection). Bigger values will
             aid in overcoming local maximum but setting this value too big will result in instability of the algorithm.
+        :param guaranteed_elites: if greater than 0 then this amount of solutions with the highest scores is
+            considered 'elites' - they do not 'fight' in the tournament and do not undergo mutations to ensure they are
+            never lost
         :return: the best found solution
         """
         rng = rng if rng is not None else np.random.default_rng(seed)
@@ -488,7 +491,16 @@ class EngineWrapper:
             chosen_parents = population[parents_indexes]
             offspring_size = len(population) - len(chosen_parents)
             offspring = self.crossover(chosen_parents, offspring_size, rng=rng)
-            offspring = self.mutate_bool_ndarray(offspring, mutation_chance, rng=rng)
+            if guaranteed_elites > 0:  # if it is not greater than 0 there is no point in calculating scores again
+                offspring = self.symmetrize_numpy_matrix(offspring, "upper")
+                temp_scores = self.goal_function_convenient(distances_matrix, sizes_vector, offspring)
+                # I know there exists np.argpartition but for arrays as small as this one (hundreds, maybe a thousand
+                # elements) using argpartition is not necessarily much faster than normal sort - will check later
+                sorted_solutions_idx = np.argsort(temp_scores)[::-1]
+                best_solution_idx = sorted_solutions_idx[0:guaranteed_elites]
+            else:
+                best_solution_idx = None
+            offspring = self.mutate_bool_ndarray(offspring, mutation_chance, rng=rng, spare_indexes=best_solution_idx)
             offspring = self.symmetrize_numpy_matrix(offspring, "upper")
 
             next_goal_achievement = self.goal_function_convenient(distances_matrix, sizes_vector, offspring)
