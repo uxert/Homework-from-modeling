@@ -468,8 +468,8 @@ class EngineWrapper:
             offspring = self.mutate_bool_ndarray(offspring, mutation_chance, rng=rng)
             offspring = self.symmetrize_numpy_matrix(offspring, "upper")
 
-            next_goal_achievement = self.goal_function_convenient(distances_matrix, sizes_vector, population)
-            print(f"Generation {iteration}, best solution fittness: {np.max(next_goal_achievement)}")
+            next_goal_achievement = self.goal_function_convenient(distances_matrix, sizes_vector, offspring)
+            print(f"Generation {iteration}, best solution fittness: {np.max(goal_achievement)}")
 
         return offspring
 
