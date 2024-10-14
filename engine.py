@@ -397,8 +397,7 @@ class EngineWrapper:
         if parents.ndim != 3:  # batch of 2D connection matrices is expected
             raise ValueError(f"Crossover expected a np.ndarray with exactly 3 dimensions, got {parents.ndim} instead")
         parents_amount = parents.shape[0]
-        cities_amount = parents.shape[1]
-        offspring = np.empty((parents_amount + offspring_count, cities_amount, cities_amount), dtype=parents.dtype)
+        offspring = np.empty((parents_amount + offspring_count, parents.shape[1], parents.shape[2]), dtype=parents.dtype)
         offspring[0:parents_amount, :, :] = parents
         rng = np.random.default_rng() if rng is None else rng
         for i in range(offspring_count):
