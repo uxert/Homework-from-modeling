@@ -5,7 +5,7 @@ being solved
 from math import ceil
 
 import numpy as np
-from typing import Tuple, List, Literal, Any, Union
+from typing import Tuple, List, Literal, Any, Union, Callable
 import itertools
 from numpy import dtype, ndarray
 import constants as cn
@@ -118,6 +118,53 @@ class EngineWrapper:
         money = (np.log(size1) + np.log(size2))/(2 * np.log(max_param_val)) * np.tanh(distance/(10**6)) * max_result_val
         return money.astype(np.uint64)  # there is absolutely no point in being more precise than an
         # int value, especially since in this case "money" usually is in magnitude of millions or larger
+
+    @staticmethod
+    def calculate_reward_matrix(distances_matrix: ndarray[np.uint32], sizes_vector: ndarray[np.uint32],
+                                achievement_function: Callable = None, max_result_val: np.uint64 = None)\
+            -> np.ndarray[np.uint64]:
+        """
+        This method allows to leverage the fact, that in the solved optimization problem 'alleles' are both binary
+        and completely independent. This means one can calculate how much 'reward' each individual allele brings and
+        avoid calculating this each time. Of course this 'reward_matrix' can be used only when distances between cities,
+        their sizes and the function used to calculate reward remain CONSTANT. When they change, the reward matrix has
+        to be calculated once again for new parameters.
+        :param distances_matrix: A symmetric 2D numpy array representing distances between cities
+        :param sizes_vector: A 1D numpy array representing the size of each city
+        :param achievement_function: A Callable that accepts the same parameters as
+            EngineWrapper.function_F(). When not provided, the default function_F() will be used. Refer to docs of
+            EngineWrapper.function_F() for details about customizing the reward function.
+        :param max_result_val: This parameter allows to specify the reward function's value for max possible inputs.
+            If None, it will NOT be passed to the reward function at all - your custom function does not have to take it
+        :return: A reward matrix - 2D np.ndarray of the same shape as `dist`. Element with index [i,j] represents how
+            much money does one earn by connecting cities with indexes i and j. Of course this matrix by definition
+            is symmetric.
+        """
+        achievement_function = EngineWrapper.function_F if achievement_function is None else achievement_function
+        if distances_matrix.ndim !=2 or sizes_vector.ndim != 1:
+            dim_mismatch_err_message = (f"Expected distances matrix to have 2 dimensions and sizes vector to have one,"
+                                        f"but received distances with {distances_matrix.ndim} dimensions and sizes with"
+                                        f" {sizes_vector.ndim} dimensions instead")
+            raise ValueError(dim_mismatch_err_message)
+        if np.any(distances_matrix != distances_matrix.T):
+            raise ValueError("Expected distances_matrix to be symmetric, not symmetric matrix received")
+
+        # noinspection PyTypeChecker
+        rewards_matrix: ndarray[np.uint64] = np.zeros_like(distances_matrix, dtype=np.uint64)
+
+        if max_result_val is None:
+            for row_no in range(rewards_matrix.shape[0]):
+                for col_no in range(rewards_matrix.shape[1]):
+                    rewards_matrix[row_no, col_no] = achievement_function(sizes_vector[row_no], sizes_vector[col_no],
+                                                                          distances_matrix[row_no, col_no])
+            return rewards_matrix
+
+        # goes here only when max_result_val is provided
+        for row_no in range(rewards_matrix.shape[0]):
+            for col_no in range(rewards_matrix.shape[1]):
+                rewards_matrix[row_no, col_no] = achievement_function(sizes_vector[row_no], sizes_vector[col_no],
+                                                                      distances_matrix[row_no, col_no], max_result_val)
+        return rewards_matrix
 
     # noinspection PyIncorrectDocstring
     @staticmethod
