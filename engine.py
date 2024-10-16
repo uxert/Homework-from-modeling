@@ -348,8 +348,9 @@ class EngineWrapper:
         if goal_scores.ndim != 1:
             return None
         rng = np.random.default_rng() if rng is None else rng
-        sorted_scores_idx = np.argsort(goal_scores)[::-1]  # oddly specific comment about the need to reverse the
+        # sorted_scores_idx = np.argsort(goal_scores)[::-1]  # oddly specific comment about the need to reverse the
         # argsort()'s result since it is sorting in ascending order...
+        sorted_scores_idx = np.argpartition(goal_scores, kth=-excluded_candidates)[::-1]
         winners = []
         for i in range(excluded_candidates):
             winners.append(sorted_scores_idx[i])
@@ -494,9 +495,8 @@ class EngineWrapper:
             if guaranteed_elites > 0:  # if it is not greater than 0 there is no point in calculating scores again
                 offspring = self.symmetrize_numpy_matrix(offspring, "upper")
                 temp_scores = self.goal_function_convenient(distances_matrix, sizes_vector, offspring)
-                # I know there exists np.argpartition but for arrays as small as this one (hundreds, maybe a thousand
-                # elements) using argpartition is not necessarily much faster than normal sort - will check later
-                sorted_solutions_idx = np.argsort(temp_scores)[::-1]
+                # sorted_solutions_idx = np.argsort(temp_scores)[::-1]
+                sorted_solutions_idx = np.argpartition(temp_scores, kth=-guaranteed_elites)[::-1]
                 best_solution_idx = sorted_solutions_idx[0:guaranteed_elites]
             else:
                 best_solution_idx = None
