@@ -10,6 +10,7 @@ import itertools
 from numpy import dtype, ndarray
 import constants as cn
 
+USE_REWARDS_MATRIX = True
 
 class EngineWrapper:
     """
@@ -35,6 +36,8 @@ class EngineWrapper:
         self.max_connections = np.uint32(cn.max_connections) if max_connections_count is None else max_connections_count
         self.one_rail_cost = np.uint32(cn.one_rail_cost) if one_rail_cost is None else one_rail_cost
         self.infrastructure_cost = np.uint32(cn.infrastructure_cost) if infrastructure_cost is None else infrastructure_cost
+
+        self.rewards_matrix = None
 
     @staticmethod
     def generate_random_city_values(cities_amount:np.uint8, max_city_size: np.uint32 = 2**32-1,
@@ -154,16 +157,17 @@ class EngineWrapper:
 
         if max_result_val is None:
             for row_no in range(rewards_matrix.shape[0]):
-                for col_no in range(rewards_matrix.shape[1]):
+                for col_no in range(row_no):
                     rewards_matrix[row_no, col_no] = achievement_function(sizes_vector[row_no], sizes_vector[col_no],
                                                                           distances_matrix[row_no, col_no])
-            return rewards_matrix
-
-        # goes here only when max_result_val is provided
-        for row_no in range(rewards_matrix.shape[0]):
-            for col_no in range(rewards_matrix.shape[1]):
-                rewards_matrix[row_no, col_no] = achievement_function(sizes_vector[row_no], sizes_vector[col_no],
+        else:
+            for row_no in range(rewards_matrix.shape[0]):
+                for col_no in range(row_no):
+                    rewards_matrix[row_no, col_no] = achievement_function(sizes_vector[row_no], sizes_vector[col_no],
                                                                       distances_matrix[row_no, col_no], max_result_val)
+
+        rewards_matrix = EngineWrapper.symmetrize_numpy_matrix(rewards_matrix, "lower")  # watch out, lower
+        # side is filled so lower has to be copied!
         return rewards_matrix
 
     # noinspection PyIncorrectDocstring
@@ -171,7 +175,8 @@ class EngineWrapper:
     def goal_achievement_function(distances_matrix: np.ndarray[np.uint32], sizes_vector: np.ndarray[np.uint32],
                                   connections_matrix: np.ndarray[np.bool], max_cost: np.uint64,  max_railway_len: np.uint64,
                                   max_connections_count: np.uint32, one_rail_cost: np.uint32,
-                                  one_infrastructure_cost: np.uint32) -> np.uint64:
+                                  one_infrastructure_cost: np.uint32, rewards_matrix: ndarray[np.uint64] = None) \
+            -> np.uint64:
         """This function takes exactly one solution (or solution candidate) and evaluates it with non-negative score.
         On the caller of this function lies the responsibility for ensuring that both matrices and the size_vector have
         appropriate shapes (the same number of cities), that all provided values have correct datatypes and that the
@@ -180,6 +185,11 @@ class EngineWrapper:
             m[i][j] = m[j][i] (this matrix has to be symmetrical)
         :param connections_matrix: Matrix of booleans where element m[i][j] represents whether there is a connection
             between cities i and j. Of course m[i][j] has to be equal to m[j][i], same as with the distances_matrix.
+        :param rewards_matrix: 2D ndarray of shape (cities_amount, cities_amount) - the same shape as distances_matrix.
+            If provided, element with index [i,j] will represent the reward for connecting cities with indexes i and j.
+            If in your optimization problem distances, sizes and function used to calculate reward are constant
+            do not change often calculating this matrix beforehand is HIGHLY RECOMMENDED - it will save a ton of
+            computation and improve performance.
          :returns: If the solution does not satisfy any of the constraints (for example too many connections) this function
              returns exactly 0. Otherwise, it returns one positive integer representing a value of this solution -
              the bigger, the better
@@ -196,6 +206,11 @@ class EngineWrapper:
         if connections_matrix.shape != distances_matrix.shape:
             err_shape_mismatch = (f"shape of connections_matrix: {connections_matrix.shape} does not match with the "
                                   f"shape of distances_matrix: {distances_matrix.shape}")
+            raise ValueError(err_shape_mismatch)
+        if rewards_matrix is not None and rewards_matrix.shape != distances_matrix.shape:
+            err_shape_mismatch = (f"Expected the reward matrix to have the same shape as connections matrix, but "
+                                  f"received arrays with shapes {rewards_matrix.shape} and {connections_matrix.shape} "
+                                  f"respectively")
             raise ValueError(err_shape_mismatch)
         # first checks for max number of connections, as it requires basically no computation
         connections_count = np.uint32(np.count_nonzero(connections_matrix)) // 2
@@ -228,17 +243,21 @@ class EngineWrapper:
         connection_indexes = zip(rows, cols)  # each element is a pair of indexes representing one connection
 
         individual_scores_matrix = np.zeros_like(connections_matrix, dtype=np.uint64)
-        for row, col in connection_indexes:
-            individual_scores_matrix[row,col] = EngineWrapper.function_F(sizes_vector[row], sizes_vector[col],
-                                                                         distances_matrix[row,col])
+        if rewards_matrix is None:
+            for row, col in connection_indexes:
+                individual_scores_matrix[row,col] = EngineWrapper.function_F(sizes_vector[row], sizes_vector[col],
+                                                                             distances_matrix[row,col])
+        else:
+            for row, col in connection_indexes:
+                individual_scores_matrix[row,col] = rewards_matrix[row,col]
         overall_score = np.sum(individual_scores_matrix)
         return overall_score
 
     def goal_function_convenient(self, distances_matrix: np.ndarray[np.uint32], sizes_vector: np.ndarray[np.uint32],
                                 connections_matrix: np.ndarray[np.bool], max_cost: np.uint64 = None,
                                 max_railway_len: np.uint64 = None, max_connections_count: np.uint32 = None,
-                                one_rail_cost: np.uint32 = None, one_infrastructure_cost: np.uint32 = None)\
-            -> Union[np.uint64, np.ndarray[np.uint64]]:
+                                one_rail_cost: np.uint32 = None, one_infrastructure_cost: np.uint32 = None,
+                                rewards_matrix: ndarray[np.uint64] = None) -> Union[np.uint64, np.ndarray[np.uint64]]:
         """
         This method calls static method self.goal_achievement_function(...) and passes to it all given parameters.
         If any of the parameters is None, then it's value is defaulted to the one created during this instance
@@ -253,6 +272,9 @@ class EngineWrapper:
             self.goal_achievement_function(...). If more than 2D it is interpreted as a batch and each connection matrix
             is passed individually, For example, if an array of shape (7, 15, 15) is provided then the underlying
             goal_achievement_function() will be called 7 times, each time with 15 x 15 connection matrix.
+        :param rewards_matrix: 2D ndarray of the same shape as distances, i.e. of shape (cities_amount,
+            cities_amount). If provided it will be used to determine rewards for connecting the cities. Refer to docs
+            of self.goal_achievement_function for more details.
 
         :return: effect of call on the underlying self.goal_achievement_function(). If one connection matrix was provided
             a scalar is returned. If a whole batch was provided then returns an array with the last two dimensions
@@ -271,7 +293,7 @@ class EngineWrapper:
         if connections_matrix.ndim == 2:
             return self.goal_achievement_function(distances_matrix, sizes_vector, connections_matrix, max_cost,
                                               max_railway_len, max_connections_count, one_rail_cost,
-                                              one_infrastructure_cost)
+                                              one_infrastructure_cost, rewards_matrix)
 
         if connections_matrix.ndim > 2:
             resulting_arr = np.zeros(shape=connections_matrix.shape[:-2], dtype=np.uint64)  # reduces last 2 dimensions
@@ -282,7 +304,7 @@ class EngineWrapper:
                 one_connection_matrix = connections_matrix[index]
                 one_goal_result = self.goal_achievement_function(distances_matrix, sizes_vector, one_connection_matrix,
                                                                  max_cost,max_railway_len, max_connections_count,
-                                                                 one_rail_cost,one_infrastructure_cost)
+                                                                 one_rail_cost,one_infrastructure_cost, rewards_matrix)
                 resulting_arr[index] = one_goal_result
 
             # noinspection PyTypeChecker
@@ -319,7 +341,8 @@ class EngineWrapper:
 
     def _check_one_candidate(self, one_candidate: np.ndarray[np.bool],
                              distances_matrix: np.ndarray[np.uint32], sizes_vector: np.ndarray[np.uint32],
-                             rng: np.random.Generator, prune_factor = 0.2) -> np.ndarray[np.bool] | None:
+                             rng: np.random.Generator, prune_factor = 0.2, rewards_matrix: ndarray[np.uint64] = None)\
+            -> np.ndarray[np.bool] | None:
         """
         This method checks whether the candidate satisfies all the constraints, like max_connections or fitting inside
         the budget. If it does not satisfy the constraints connections are randomly removed until this solution
@@ -329,7 +352,8 @@ class EngineWrapper:
             Setting it to higher values will result in less computation required to generate a population (fewer
             iterations) but will result in over-pruned solutions having generally fewer connections than they could.
         """
-        while self.goal_function_convenient(distances_matrix, sizes_vector, one_candidate) < 1:
+        while self.goal_function_convenient(distances_matrix, sizes_vector, one_candidate,
+                                            rewards_matrix=rewards_matrix) < 1:
             connections = np.nonzero(np.triu(one_candidate, k=1))  # k can be both 0 and 1, diagonal is always False
             connections_amount = len(connections[0])
             if connections_amount <= 1:  # if there is one connection there will be none after removing
@@ -359,7 +383,8 @@ class EngineWrapper:
         population = []
         for i in range(population_size):
             one_candidate = self.generate_one_candidate(rng, cities_amount)
-            one_candidate = self._check_one_candidate(one_candidate, distances_matrix, sizes_vector, rng)
+            one_candidate = self._check_one_candidate(one_candidate, distances_matrix, sizes_vector, rng,
+                                                      rewards_matrix=self.rewards_matrix)
             population.append(one_candidate)
 
         #now it needs to check, if there are no None candidates - solutions, that did not pass the constraints check
@@ -369,7 +394,8 @@ class EngineWrapper:
             new_elem = None
             while new_elem is None:
                 new_elem = self.generate_one_candidate(rng, cities_amount)
-                new_elem = self._check_one_candidate(new_elem, distances_matrix, sizes_vector, rng)
+                new_elem = self._check_one_candidate(new_elem, distances_matrix, sizes_vector, rng,
+                                                     rewards_matrix=self.rewards_matrix)
             population[i] = new_elem
         # noinspection PyTypeChecker
         return population
@@ -526,12 +552,18 @@ class EngineWrapper:
             raise ValueError(f"Initial population must be boolean, got datatype {initial_population.dtype} instead")
 
         cities_amount = distances_matrix.shape[0]
+        if USE_REWARDS_MATRIX:
+            self.rewards_matrix = self.calculate_reward_matrix(distances_matrix, sizes_vector)
+        else:
+            self.rewards_matrix = None
+
         if initial_population is None:
             initial_population = self._generate_first_population(distances_matrix, sizes_vector, population_size,
                                                                  cities_amount, rng=rng)
 
         offspring = np.array(initial_population, dtype=np.bool)
-        next_goal_achievement = self.goal_function_convenient(distances_matrix, sizes_vector, offspring)
+        next_goal_achievement = self.goal_function_convenient(distances_matrix, sizes_vector, offspring,
+                                                              rewards_matrix=self.rewards_matrix)
         for iteration in range(iterations):
             goal_achievement = next_goal_achievement
             population = offspring
@@ -541,7 +573,8 @@ class EngineWrapper:
             offspring = self.crossover(chosen_parents, offspring_size, rng=rng)
             if guaranteed_elites > 0:  # if it is not greater than 0 there is no point in calculating scores again
                 offspring = self.symmetrize_numpy_matrix(offspring, "upper")
-                temp_scores = self.goal_function_convenient(distances_matrix, sizes_vector, offspring)
+                temp_scores = self.goal_function_convenient(distances_matrix, sizes_vector, offspring,
+                                                            rewards_matrix=self.rewards_matrix)
                 # sorted_solutions_idx = np.argsort(temp_scores)[::-1]
                 sorted_solutions_idx = np.argpartition(temp_scores, kth=-guaranteed_elites)[::-1]
                 best_solution_idx = sorted_solutions_idx[0:guaranteed_elites]
@@ -550,8 +583,11 @@ class EngineWrapper:
             offspring = self.mutate_bool_ndarray(offspring, mutation_chance, rng=rng, spare_indexes=best_solution_idx)
             offspring = self.symmetrize_numpy_matrix(offspring, "upper")
 
-            next_goal_achievement = self.goal_function_convenient(distances_matrix, sizes_vector, offspring)
+            next_goal_achievement = self.goal_function_convenient(distances_matrix, sizes_vector, offspring,
+                                                                  rewards_matrix=self.rewards_matrix)
             print(f"Generation {iteration}, best solution fittness: {np.max(goal_achievement)}")
+
+        print(f"Best found solution fittness: {np.max(next_goal_achievement)}")
 
         return offspring
 
