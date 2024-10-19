@@ -38,52 +38,96 @@ class EngineWrapper:
         self.infrastructure_cost = np.uint32(cn.infrastructure_cost) if infrastructure_cost is None else infrastructure_cost
 
         self.rewards_matrix = None
+        self.coordinates = None
 
     @staticmethod
-    def generate_random_city_values(cities_amount:np.uint8, max_city_size: np.uint32 = 2**32-1,
-                                    max_distance: np.uint32 = 2**32-1, seed: int = None) \
+    def generate_random_city_cords(cities_amount:np.uint8, max_city_size = np.uint32(2**16 - 1),
+                                   max_coordinate_val = np.uint32(2**16 - 1), seed: int = None) \
             -> Tuple[np.ndarray[np.uint32], np.ndarray[np.uint32]]:
         """
-        This function generates random city parameters (i.e. distances between cities and their sizes) for the optimization
-        problem. A seed can be provided if one has the need for reproducibility. Both max_city_size and max_distance
-        should not be bigger than the default2**32 - 1 - any higher values will be truncated to 2**32 - 1
-        :return: a tuple: (distances_matrix, city_sizes_vector). Distance matrix is a 2D np ndarray where element with
-            index [i][j] is the distance between city i and city j. This matrix by definition is symmetric but unfortunately
-            numpy does not provide a built-in method for efficiently storing symmetric matrices so the whole matrix will be
-            returned anyway. City sizes vector represents exactly what it's name implies: element with index [i] is the size
-            of i-th city.
+        This function generates random cities coordinates on a square map and random city sizes. Returns results as two
+        separate ndarrays. Providing the seed allows to reproduce results. This function guarantees, that no 2 cities
+        will have the exact same coordinates
+
+        Coordinates are returned as 2D ndarray of shape (cities_amount, 2) and sizes are returned as 1D ndarray of shape
+        (cities_amount,)
+
+        :param max_coordinate_val: How big is side of the map. Smallest possible map is 32 x 32, biggest possible map
+            is (2^31 - 1) x (2^31 - 1). Not 2^32 to guarantee that the distance does not overflow
+        :param max_city_size: How big can be a single city. This value cannot be smaller than 64 and can go up to 2^32-1
+        :return: A tuple: (Coordinates, sizes_vector)
         """
+        if cities_amount < 2 or cities_amount > 255:
+            wrong_cities_amount_message = (f"Cities amount expected to be a number between 2 and 255 (inclusive), "
+                                           f"got {cities_amount} instead")
+            raise ValueError(wrong_cities_amount_message)
+        if max_coordinate_val < 32 or max_coordinate_val > 2**31 - 1:
+            wrong_coordinate_val = (f"max_coordinate_val expected to be a number between 32 and 2^31 - 1 (inclusive), "
+                                    f"got {max_coordinate_val} instead")
+            raise ValueError(wrong_coordinate_val)
         rng = np.random.default_rng(seed)
-        cities_amount = np.uint8(255) if cities_amount > 255 else cities_amount
-        # distances matrix has to be symmetric by definition, but of course random generation does not provide that
-        # symmetry is achieved by taking only upper half of the matrix, transposing it and adding the two pieces together
-        # in one of the pieces k=1 so that the 'main' diagonal is taken into the account only once
-        distances_matrix: np.ndarray = rng.integers(low=1, high=max_distance, size=(cities_amount, cities_amount),
-                                                    dtype=np.uint32)
-        distances_matrix = np.triu(distances_matrix, k=1) + (np.triu(distances_matrix, k=0)).T
-        city_sizes_vector: np.ndarray = rng.integers(low=1, high=max_city_size, size=(cities_amount,), dtype=np.uint32)
-        # int64 used in numpy arrays by default is a drastic overkill, uint32 will be way more than enough
+        max_city_size = np.uint32(64) if max_city_size < 64 else max_city_size
+
+        coordinates_list = []
+        already_used_coordinates = set()
+        while len(coordinates_list) < cities_amount:
+            one_pair = rng.integers(max_coordinate_val, size=2, dtype=np.uint32)
+            if tuple(one_pair) not in already_used_coordinates:
+                coordinates_list.append(one_pair)
+                already_used_coordinates.add(tuple(one_pair))
+        coordinates = np.array(coordinates_list, dtype=np.uint32)
+        cities_sizes = rng.integers(max_city_size, size=(cities_amount,), dtype=np.uint32)
         # noinspection PyTypeChecker
-        # for some reason PyCharm thinks those arrays do not have dtype=np.uint32
-        return distances_matrix, city_sizes_vector
+        return coordinates, cities_sizes
+
+    @staticmethod
+    def calculate_distances_matrix(coordinates: ndarray[np.uint32], use_manhattan_metric=True) -> ndarray[np.uint32]:
+        """
+        this method takes a 2D coordinates array of shape (cities_amount, 2) and returns a 2D ndarray of shape
+        (cities_amount, cities_amount) where element with index [i,j] is the distance between cities i and j.
+        :param use_manhattan_metric: If set to True (default) evaluates Manhattan distance - sum of the absolute
+            differences between the coordinates. When set to False standard Euclidean metric will be used (rounding up
+            to a whole integer)
+        """
+        if coordinates.ndim != 2 or coordinates.shape[1] != 2:
+            raise ValueError(f"Expected coordinates to have shape (cities_amount, 2), got {coordinates.shape} instead")
+        cities_amount = len(coordinates)
+        distances_matrix = np.zeros(shape=(cities_amount, cities_amount), dtype=np.uint32)
+        cords = coordinates.astype(np.int64)  # changing to int64 to allow for negative differences and to 'fit'
+        # squaring when calculating Euclidean
+        # This loop will leave diagonal not-computed (initialized with 0). It is intentional since distance from a
+        # city to itself is always 0
+        for row in range(cities_amount):
+            for col in range(row):
+                difference = cords[row] - cords[col]  # so that it can be negative
+                if use_manhattan_metric:
+                    distances_matrix[row, col] = np.sum(np.abs(difference))
+                else:
+                    difference = np.sqrt(np.sum(np.square(difference)))
+                    distances_matrix[row, col] = np.round(difference)
+        distances_matrix = EngineWrapper.symmetrize_numpy_matrix(distances_matrix, "lower")  # have to copy lower side
+        # because the lower side was computed
+        return distances_matrix
 
     def generate_cities(self, cities_amount:np.uint8 = None, max_city_size: np.uint32 = None,
                         max_distance: np.uint32 = None, seed: int = None) \
-        -> Tuple[np.ndarray[np.uint32], np.ndarray[np.uint32]]:
+        -> Tuple[np.ndarray[np.uint32], np.ndarray[np.uint32], np.ndarray[np.uint32]]:
         """
-        This method calls the static method self.generate_random_city_values(...). If any of given parameters is None,
-        then it's value is defaulted to the value created in __init__() of this object before it's passed to the
+        This method calls the static method self.generate_random_city_cords(...) and then
+        self.calculate_distances_matrix(....). If any of given parameters is None, then its value is defaulted to the
+        value created in __init__() of this object before it's passed to the
         static function, with seed being the only exception.
 
-        Refer to docs of self.generate_random_city_values() for more information.
-        :param seed: Given seed is passed directly to the underlying self.generate_random_city_values() - if None is
+        :param seed: Given seed is passed directly to the underlying self.generate_random_city_cords() - if None is
             given, then None will be passed further.
-        :return: returns the result from call of the underlying self.generate_random_city_values()
+        :return: A tuple of 3 ndarrays - distances_matrix, sizes_vector and cities_coordinates
         """
         cities_amount = self.cities_count if cities_amount is None else cities_amount
         max_city_size = self.max_city_size if max_city_size is None else max_city_size
         max_distance = self.max_distance if max_distance is None else max_distance
-        return self.generate_random_city_values(cities_amount, max_city_size, max_distance, seed)
+        coordinates, sizes_vector = self.generate_random_city_cords(cities_amount, max_city_size, max_distance, seed)
+        distances_matrix = self.calculate_distances_matrix(coordinates, use_manhattan_metric=True)
+        return distances_matrix, sizes_vector, coordinates
 
     # noinspection PyIncorrectDocstring
     @staticmethod
@@ -603,7 +647,7 @@ if __name__ == "__main__":
                                   max_cost = np.uint64(4_000_000), max_railway_len=np.uint64(200_000),
                                   max_connections_count=np.uint32(200), one_rail_cost=np.uint32(100),
                                   infrastructure_cost=np.uint32(10000))
-    dist, sizes = test_instance.generate_cities(seed=42)
+    dist, sizes, cords = test_instance.generate_cities(seed=42)
     last_population = test_instance.genetic_algorithm(distances_matrix=dist, sizes_vector=sizes, rng=my_rng)
     temp = input("\nDo you wish to print all the solutions (y/n)? ")
     if temp.lower() == "y":
