@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Submit parameters</title>
+
+</head>
+<body>
+    <h1>You submitted {{ cities_amount }} cities, now insert their coordinates </h1>
+    <form action="/submit_cords" method="post">
+        {% for i in range(cities_amount) %}
+            <label for="city{{i}}_x">City {{i}}_x:</label>
+            <input type="number" id="city{{i}}_x" name="city{{i}}_x" min="1" required>
+
+            <label for="city{{i}}_y">City {{i}}_y:</label>
+            <input type="number" id="city{{i}}_y" name="city{{i}}_y" min="1" required>
+            <p></p>
+        {% endfor %}
+        <input type="submit" value="Submit">
+
+    </form>
+    <p></p>
+    <a href="/">
+        <button>Go to Home</button>
+    </a>
+
+</body>
+</html>
