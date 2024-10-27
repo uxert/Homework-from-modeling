@@ -1,8 +1,8 @@
 from configparser import ConfigParser
 
 from flask import Flask, render_template, request, session, url_for, redirect
-import engine  # to calculate the genetic algorithm
-
+from numpy import array, uint32
+import numpy as np
 from engine import EngineWrapper
 
 app = Flask(__name__)
@@ -48,8 +48,42 @@ def submit_coordinates():
         size = int(request.form[f'city{i}_size'])
         coordinates.append([x, y])
         sizes.append(size)
-    return (f"<h1>Thank you for submitting the coordinates, further functions in development :)</h1>"
-            f"<a href='/'><button>Go to Home</button></a>")
+    coordinates = array(coordinates, dtype=uint32)
+    sizes = array(sizes, dtype=uint32)
+    session['coordinates_ready'] = True
+    seed = int(request.form['seed'])
+    seed = None if seed == 0 else seed
+    algorithm_instance = EngineWrapper(session['cities_amount'], max_city_size=session['max_city_size'],
+        max_coordinate_val=session['max_possible_coordinate'], max_cost=session['max_budget'],
+        max_railway_len=session['max_railways_pieces'], max_connections_count=session['max_connections'],
+        one_rail_cost=session['one_rail_cost'], infrastructure_cost=session['infrastructure_cost'])
+
+    distances = algorithm_instance.calculate_distances_matrix(coordinates, use_manhattan_metric=True)
+    print("generated distances")
+    last_population = algorithm_instance.genetic_algorithm(distances_matrix=distances, sizes_vector=sizes,
+                                                           seed=seed, silent=True)
+    last_population_scores = algorithm_instance.goal_function_convenient(distances, sizes, last_population)
+    best_index = np.argmax(last_population_scores)
+    best_score = last_population_scores[best_index]
+    best_solution = last_population[best_index]
+    connections = []
+    for i in range(session['cities_amount']):
+        temp = []
+        for j in range(session['cities_amount']):
+            if best_solution[i,j] == True:  # == instead of 'is', because numpy apparently does not store them as
+                # actual python booleans - checked, using 'is' does not work
+                temp.append(j)
+        connections.append(temp)
+    return render_template("display_results.html", best_score=best_score,
+                           best_solution_connections=connections)
+
+@app.route("/display_result", methods=["GET"])
+def display_result():
+    best_score = session.get("best_score", None)
+    if best_score is None:
+        return redirect(url_for("welcome_page"))  # create a page with an error in the future
+
+
 
 
 @app.route('/')
