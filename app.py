@@ -1,3 +1,5 @@
+from configparser import ConfigParser
+
 from flask import Flask, render_template, request, session, url_for, redirect
 import engine  # to calculate the genetic algorithm
 app = Flask(__name__)
@@ -9,8 +11,14 @@ app.secret_key = "Ale sekret ten kij"
 def submit_cities_amount():
     if request.form['cities_amount'] is None:
         return redirect(url_for("welcome_page"))
+
     cities_amount = int(request.form['cities_amount'])
     session['cities_amount'] = cities_amount
+
+    parameters = ['infrastructure_cost', 'max_railways_pieces', 'max_connections', 'one_rail_cost', 'max_budget',
+                  'max_city_size', 'max_possible_distance']
+    for param in parameters:
+        session[param] = int(request.form[param])
     return redirect(url_for("submit_cords_page"))
 
 @app.route('/submit_cords', methods=["GET"])
@@ -33,5 +41,7 @@ def submit_coordinates():
 
 @app.route('/')
 def welcome_page():
-    return render_template("landing_page.html")
+    my_config = ConfigParser()
+    my_config.read("config.ini")
+    return render_template("landing_page.html", config_values=my_config)
 
