@@ -16,7 +16,7 @@ def submit_cities_amount():
     session['cities_amount'] = cities_amount
 
     parameters = ['infrastructure_cost', 'max_railways_pieces', 'max_connections', 'one_rail_cost', 'max_budget',
-                  'max_city_size', 'max_possible_distance']
+                  'max_city_size', 'max_possible_coordinate']
     for param in parameters:
         session[param] = int(request.form[param])
     return redirect(url_for("submit_cords_page"))

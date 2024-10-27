@@ -24,13 +24,13 @@ class EngineWrapper:
     be static as it relies on the convenient wrappers
     """
     def __init__(self, cities_amount: np.uint8 = None, max_city_size: np.uint32 = None,
-                 max_distance: np.uint32 = None, max_cost: np.uint64 = None, max_railway_len: np.uint64 = None,
+                 max_coordinate_val: np.uint32 = None, max_cost: np.uint64 = None, max_railway_len: np.uint64 = None,
                  max_connections_count: np.uint32 = None, one_rail_cost: np.uint32 = None,
                  infrastructure_cost: np.uint64 = None):
 
         self.cities_count = np.uint8(cn.cities_amount) if cities_amount is None else cities_amount
         self.max_city_size = np.uint32(cn.max_city_size) if max_city_size is None else max_city_size
-        self.max_distance = np.uint32(cn.max_possible_distance) if max_distance is None else max_distance
+        self.max_coordinate_val = np.uint32(cn.max_possible_distance) if max_coordinate_val is None else max_coordinate_val
         self.max_cost = np.uint64(cn.max_cost) if max_cost is None else max_cost
         self.max_railways_len = np.uint64(cn.max_railways_pieces) if max_railway_len is None else max_railway_len
         self.max_connections = np.uint32(cn.max_connections) if max_connections_count is None else max_connections_count
@@ -124,7 +124,7 @@ class EngineWrapper:
         """
         cities_amount = self.cities_count if cities_amount is None else cities_amount
         max_city_size = self.max_city_size if max_city_size is None else max_city_size
-        max_distance = self.max_distance if max_distance is None else max_distance
+        max_distance = self.max_coordinate_val if max_distance is None else max_distance
         coordinates, sizes_vector = self.generate_random_city_cords(cities_amount, max_city_size, max_distance, seed)
         distances_matrix = self.calculate_distances_matrix(coordinates, use_manhattan_metric=True)
         return distances_matrix, sizes_vector, coordinates
@@ -643,7 +643,7 @@ if __name__ == "__main__":
     # meant to be. This will be cleaned after completing the whole engine
     print(20 * "-" + "Genetic Algorithm test" + 20 * "-")
     my_rng = np.random.default_rng(42)
-    test_instance = EngineWrapper(cities_amount=np.uint8(30), max_distance=np.uint32(500), max_city_size=np.uint32(500),
+    test_instance = EngineWrapper(cities_amount=np.uint8(30), max_coordinate_val=np.uint32(500), max_city_size=np.uint32(500),
                                   max_cost = np.uint64(4_000_000), max_railway_len=np.uint64(200_000),
                                   max_connections_count=np.uint32(200), one_rail_cost=np.uint32(100),
                                   infrastructure_cost=np.uint32(10000))
