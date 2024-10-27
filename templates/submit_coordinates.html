@@ -19,13 +19,18 @@
             <input type="number" id="city{{i}}_size" name="city{{i}}_size" min="1" value="{{ random_sizes[i] }}" required>
             <p></p>
         {% endfor %}
+
+        <label for="seed">Seed:</label>
+        <input type="number" id="seed" name="seed" min="0" max="{{ 2**32-1 }}" value="42" required>
+        <p></p>
         <input type="submit" value="Submit">
 
     </form>
     <p></p>
-    <a href="/">
-        <button>Go to Home</button>
-    </a>
+
+    <form action="/" method="get">
+        <button type="submit">Go to Home</button>
+    </form>
 
 </body>
 </html>
