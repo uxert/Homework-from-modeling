@@ -10,10 +10,13 @@
     <form action="/submit_cords" method="post">
         {% for i in range(cities_amount) %}
             <label for="city{{i}}_x">City {{i}}_x:</label>
-            <input type="number" id="city{{i}}_x" name="city{{i}}_x" min="1" required>
+            <input type="number" id="city{{i}}_x" name="city{{i}}_x" min="1"  value="{{ random_cords[i][0] }}" required>
 
             <label for="city{{i}}_y">City {{i}}_y:</label>
-            <input type="number" id="city{{i}}_y" name="city{{i}}_y" min="1" required>
+            <input type="number" id="city{{i}}_y" name="city{{i}}_y" min="1" value="{{ random_cords[i][1] }}" required>
+
+            <label for="city{{i}}_size">City {{i}} size:</label>
+            <input type="number" id="city{{i}}_size" name="city{{i}}_size" min="1" value="{{ random_sizes[i] }}" required>
             <p></p>
         {% endfor %}
         <input type="submit" value="Submit">

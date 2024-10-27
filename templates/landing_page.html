@@ -40,6 +40,8 @@
         <input type="number" id="max_possible_distance" name="max_possible_coordinate" min="1" max="{{ 2**32-1 }}"
                value="{{ config_values['PARAMETERS'].getint('max_possible_coordinate') }}" required><br><br>
 
+        <label for="seed"> Seed to generate cities: </label>
+        <input type="number" id="seed" name="seed" min="0" max="{{ 2**32-1 }}" value="42" required>
         <input type="submit" value="Submit">
     </form>
 
