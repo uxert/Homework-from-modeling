@@ -561,7 +561,7 @@ class EngineWrapper:
     def genetic_algorithm(self, distances_matrix: np.ndarray[np.uint32], sizes_vector: np.ndarray[np.uint32],
                           initial_population: np.ndarray[np.bool] = None, population_size = 100, seed = None,
                           rng: np.random.Generator = None, iterations = 100, mutation_chance = 0.005,
-                          guaranteed_elites: int = 1) -> np.ndarray[np.bool]:
+                          guaranteed_elites: int = 1, silent=False) -> np.ndarray[np.bool]:
         """
         This function performs a genetic algorithm for given amount of iterations. Distances matrix and sizes vector
         need to have appropriate shapes, i.e. (cities_amount, cities_amount) and (cities_amount,) respectively.
@@ -585,6 +585,8 @@ class EngineWrapper:
         :param guaranteed_elites: if greater than 0 then this amount of solutions with the highest scores is
             considered 'elites' - they do not 'fight' in the tournament and do not undergo mutations to ensure they are
             never lost
+        :param silent: if True, no in-training communicates will be printed - only the best final score. If False,
+            every iteration it's best score will be printed to console so that the progress can be tracked
         :return: the best found solution
         """
         rng = rng if rng is not None else np.random.default_rng(seed)
@@ -629,7 +631,8 @@ class EngineWrapper:
 
             next_goal_achievement = self.goal_function_convenient(distances_matrix, sizes_vector, offspring,
                                                                   rewards_matrix=self.rewards_matrix)
-            print(f"Generation {iteration}, best solution fittness: {np.max(goal_achievement)}")
+            if not silent:
+                print(f"Generation {iteration}, best solution fittness: {np.max(goal_achievement)}")
 
         print(f"Best found solution fittness: {np.max(next_goal_achievement)}")
 
