@@ -1,8 +1,17 @@
-# Homework-from-modeling
-This repo is a project solving my homework from Mathematic Modeling - one of my subjects in university. This project is meant to (eventually...) be a full-stack app.
+# My own genetic algorithm
+This repo is an old project solving optimization problem defined for my homework from Mathematic Modeling - one of my subjects in university. 
+**Main focus of this project was to implement a genetic algorithm**, because after intro to SI class I was curious about it and wanted to build one myself. The optimization problem I had to define on
+my Mathematic Modeling was just an excuse to build it really, I wanted to do so for quite some time.
 
-## Simplified (for now) problem to solve:
+The whole thing is built on numpy, and numpy is basically the only non-standard (although almost everyone considers it a standard at this point...) python library required to run it.
 
+The genetic algorithm I built here was made specifically to solve the problem defined below and it's the only thing it can do. 
+The concept of a genetic algorithm remains universal of course, and that's the thing I cared most about anyway when creating this project.
+
+## What problem is being solved?
+*If you want to know how the optimization problem, that is being solved by this algorithm, was actually derived, I put the whole modeling process in MM_tycon.pdf file. It is written in Polish though, as that's the language on my university.*
+
+### Story behind the problem
 Your boss has become very interested in a game strikingly similar to Transport Tycoon, where various transport services are provided to earn money. The boss is exclusively interested in train transport because he read online that it is the most profitable activity at the beginning of the game.
 
 Everything takes place on a map with `L`[^1] cities. At the beginning of the game only cities are present on the map, nothing else.
@@ -38,6 +47,9 @@ Due to the capabilities of the aforementioned game's engine there are some numer
 - money can be calculated up to the value 2^64 - 1 (should be more than enough...)
 - max railway pieces amount can be up to 2^64 - 1
 
+
+### Your task:
+Given any map with defined cities sizes and distances, find the best possible way to connect those cities with train rails.
 
 [^1]: Each of these one-letter variables is a parameter given when solving a specific case of the problem and each one
 is accessible through config.ini file.
