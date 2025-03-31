@@ -3,7 +3,7 @@ from configparser import ConfigParser
 from flask import Flask, render_template, request, session, url_for, redirect
 from numpy import array, uint32
 import numpy as np
-from engine import EngineWrapper
+from optimization_engine import EngineWrapper
 
 app = Flask(__name__)
 

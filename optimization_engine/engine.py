@@ -1,6 +1,7 @@
 """
-this file contains computational backbone of the whole project - here the given optimization problem is actually
-being solved
+This file contains computational backbone of the whole project - here the given optimization problem is actually
+being solved.
+It's meant to be imported. When you launch it, simple test of the genetic algorithm will be performed.
 """
 from math import ceil
 
@@ -8,9 +9,8 @@ import numpy as np
 from typing import Tuple, List, Literal, Any, Union, Callable
 import itertools
 from numpy import dtype, ndarray
-import constants as cn
+from . import constants as cn
 
-USE_REWARDS_MATRIX = True
 
 class EngineWrapper:
     """
@@ -23,6 +23,8 @@ class EngineWrapper:
     so one can still access them if a need arises. Function to solve the whole optimization problem is NOT and will not
     be static as it relies on the convenient wrappers
     """
+    USE_REWARDS_MATRIX = True
+
     def __init__(self, cities_amount: np.uint8 = None, max_city_size: np.uint32 = None,
                  max_coordinate_val: np.uint32 = None, max_cost: np.uint64 = None, max_railway_len: np.uint64 = None,
                  max_connections_count: np.uint32 = None, one_rail_cost: np.uint32 = None,
@@ -598,7 +600,7 @@ class EngineWrapper:
             raise ValueError(f"Initial population must be boolean, got datatype {initial_population.dtype} instead")
 
         cities_amount = distances_matrix.shape[0]
-        if USE_REWARDS_MATRIX:
+        if self.USE_REWARDS_MATRIX:
             self.rewards_matrix = self.calculate_reward_matrix(distances_matrix, sizes_vector)
         else:
             self.rewards_matrix = None
@@ -638,12 +640,7 @@ class EngineWrapper:
 
         return offspring
 
-
-
-
-if __name__ == "__main__":
-    # test block to see if everything works properly. This will never launch if the script is only imported, as it is
-    # meant to be. This will be cleaned after completing the whole engine
+def simple_test():
     print(20 * "-" + "Genetic Algorithm test" + 20 * "-")
     my_rng = np.random.default_rng(42)
     test_instance = EngineWrapper(cities_amount=np.uint8(30), max_coordinate_val=np.uint32(500), max_city_size=np.uint32(500),
@@ -658,3 +655,7 @@ if __name__ == "__main__":
             for solution in last_population.astype(np.ushort):  # changed to integer type for more concise printing
                 print(solution)
                 print("\n")
+
+
+if __name__ == "__main__":
+    simple_test()
