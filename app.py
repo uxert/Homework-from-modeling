@@ -92,3 +92,9 @@ def welcome_page():
     my_config.read("config.ini")
     return render_template("landing_page.html", config_values=my_config)
 
+def run_the_app(use_debug_mode=True):
+    """Runs the Flask app, basically the same effect as if you just ran this script"""
+    app.run(debug=use_debug_mode)
+
+if __name__ == "__main__":
+    run_the_app()
