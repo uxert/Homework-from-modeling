@@ -1,7 +1,7 @@
 """
 This file contains computational backbone of the whole project - here the given optimization problem is actually
 being solved.
-It's meant to be imported. When you launch it, simple test of the genetic algorithm will be performed.
+It's meant to be imported from the package it's in.
 """
 from math import ceil
 
@@ -657,5 +657,3 @@ def simple_test():
                 print("\n")
 
 
-if __name__ == "__main__":
-    simple_test()

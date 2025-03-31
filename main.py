@@ -1,9 +1,9 @@
-from optimization_engine import EngineWrapper
-
+from optimization_engine import EngineWrapper, simple_test
+import app
 
 def main():
-    print("Hello world, I'm empty for now!")
-
+    # simple_test()
+    app.run_the_app()
 
 if __name__ == '__main__':
     main()
