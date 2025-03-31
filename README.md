@@ -1,6 +1,7 @@
 # My own genetic algorithm
-This repo is an old project solving optimization problem defined for my homework from Mathematic Modeling - one of my subjects in university. 
-**Main focus of this project was to implement a genetic algorithm**, because after intro to SI class I was curious about it and wanted to build one myself. The optimization problem I had to define on
+This is a project solving optimization problem defined for my homework from Mathematic Modeling - one of my subjects in university. 
+**Main focus of this project was to implement a genetic algorithm**, because after intro to SI class I was curious about it and wanted to build one myself. 
+The optimization problem I had to define on
 my Mathematic Modeling was just an excuse to build it really, I wanted to do so for quite some time.
 
 The whole thing is built on numpy, and numpy is basically the only non-standard (although almost everyone considers it a standard at this point...) python library required to run it.
@@ -8,14 +9,22 @@ The whole thing is built on numpy, and numpy is basically the only non-standard 
 The genetic algorithm I built here was made specifically to solve the problem defined below and it's the only thing it can do. 
 The concept of a genetic algorithm remains universal of course, and that's the thing I cared most about anyway when creating this project.
 
-## What problem is being solved?
-*If you want to know how the optimization problem, that is being solved by this algorithm, was actually derived, I put the whole modeling process in MM_tycon.pdf file. It is written in Polish though, as that's the language on my university.*
+# How to try it out?
+Just run the main.py script. It will launch a Flask app that will allow you to give inputs to the algorithm and show you it's output. Nothing fancy and no visualisations (yet...)
+but it gets the job done and gives some way to run the genetic algorithm, which was my main concern when creating this project.
+
+
+# What problem is being solved?
+*If you want to know how the optimization problem, that is being solved by this algorithm, was actually derived, I put the whole modeling process in MM_tycon.pdf file. 
+It is written in Polish though, as that's the language on my university.*
 
 ### Story behind the problem
-Your boss has become very interested in a game strikingly similar to Transport Tycoon, where various transport services are provided to earn money. The boss is exclusively interested in train transport because he read online that it is the most profitable activity at the beginning of the game.
+Your boss has become very interested in a game strikingly similar to Transport Tycoon, where various transport services are provided to earn money. 
+The boss is exclusively interested in train transport because he read online that it is the most profitable activity at the beginning of the game.
 
 Everything takes place on a map with `L`[^1] cities. At the beginning of the game only cities are present on the map, nothing else.
-Each of these cities is separated by a certain distance `d` expressed in arbitrary units called “tiles.” Any two cities can be connected by building exactly `d` pieces of rails and additionaly incurring a fixed infrastructure cost `b`.
+Each of these cities is separated by a certain distance `d` expressed in arbitrary units called “tiles.” 
+Any two cities can be connected by building exactly `d` pieces of rails and additionaly incurring a fixed infrastructure cost `b`.
 Building one piece of track, which allows covering the distance of one tile, costs `t` money. Each city has its own size `g` representing the population of that city.
 
 The amount of money earned from a route between two cities is a function `F` of the size of these cities and the distance between them.
@@ -53,3 +62,4 @@ Given any map with defined cities sizes and distances, find the best possible wa
 
 [^1]: Each of these one-letter variables is a parameter given when solving a specific case of the problem and each one
 is accessible through config.ini file.
+
