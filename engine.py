@@ -217,7 +217,7 @@ class EngineWrapper:
     # noinspection PyIncorrectDocstring
     @staticmethod
     def goal_achievement_function(distances_matrix: np.ndarray[np.uint32], sizes_vector: np.ndarray[np.uint32],
-                                  connections_matrix: np.ndarray[np.bool], max_cost: np.uint64,  max_railway_len: np.uint64,
+                                  connections_matrix: np.ndarray[bool], max_cost: np.uint64,  max_railway_len: np.uint64,
                                   max_connections_count: np.uint32, one_rail_cost: np.uint32,
                                   one_infrastructure_cost: np.uint32, rewards_matrix: ndarray[np.uint64] = None) \
             -> np.uint64:
@@ -298,7 +298,7 @@ class EngineWrapper:
         return overall_score
 
     def goal_function_convenient(self, distances_matrix: np.ndarray[np.uint32], sizes_vector: np.ndarray[np.uint32],
-                                connections_matrix: np.ndarray[np.bool], max_cost: np.uint64 = None,
+                                connections_matrix: np.ndarray[bool], max_cost: np.uint64 = None,
                                 max_railway_len: np.uint64 = None, max_connections_count: np.uint32 = None,
                                 one_rail_cost: np.uint32 = None, one_infrastructure_cost: np.uint32 = None,
                                 rewards_matrix: ndarray[np.uint64] = None) -> Union[np.uint64, np.ndarray[np.uint64]]:
@@ -372,21 +372,21 @@ class EngineWrapper:
             return np.tril(matrix, k=-1).swapaxes(-1, -2) + np.tril(matrix, k=0)
 
     @staticmethod
-    def generate_one_candidate(rng: np.random.Generator, cities_amount) -> np.ndarray[Any, dtype[np.bool]]:
+    def generate_one_candidate(rng: np.random.Generator, cities_amount) -> np.ndarray[Any, dtype[bool]]:
         """This method returns one candidate, i.e. one connection matrix with shape (cities_amount, cities_amount).
         This matrix is symmetric, and it's diagonal is always False (since a city cannot be connected to itself)"""
 
         rng = rng if rng is not None else np.random.default_rng()
-        one_candidate = rng.integers(0, 1, size=(cities_amount, cities_amount), dtype=np.bool, endpoint=True)
+        one_candidate = rng.integers(0, 1, size=(cities_amount, cities_amount), dtype=bool, endpoint=True)
         one_candidate = EngineWrapper.symmetrize_numpy_matrix(one_candidate, "upper")
         np.fill_diagonal(one_candidate, False)
         return one_candidate
 
 
-    def _check_one_candidate(self, one_candidate: np.ndarray[np.bool],
+    def _check_one_candidate(self, one_candidate: np.ndarray[bool],
                              distances_matrix: np.ndarray[np.uint32], sizes_vector: np.ndarray[np.uint32],
                              rng: np.random.Generator, prune_factor = 0.2, rewards_matrix: ndarray[np.uint64] = None)\
-            -> np.ndarray[np.bool] | None:
+            -> np.ndarray[bool] | None:
         """
         This method checks whether the candidate satisfies all the constraints, like max_connections or fitting inside
         the budget. If it does not satisfy the constraints connections are randomly removed until this solution
@@ -415,7 +415,7 @@ class EngineWrapper:
 
     def _generate_first_population(self, distances_matrix: np.ndarray[np.uint32], sizes_vector: np.ndarray[np.uint32],
                                    population_size: int, cities_amount: int = None,
-                                   rng: np.random.Generator = None) -> List[np.ndarray[np.bool]]:
+                                   rng: np.random.Generator = None) -> List[np.ndarray[bool]]:
         """
         This function is used to generate the first population for the genetic algorithms. It returns o List of 2D
         numpy ndarrays. Each element of this list is one connection matrix, which corresponds to one candidate solution.
@@ -526,10 +526,10 @@ class EngineWrapper:
         return offspring
 
     @staticmethod
-    def mutate_bool_ndarray(arr: ndarray[Any, dtype[np.bool]], mutation_chance = 1e-2,rng: np.random.Generator = None,
-                            spare_indexes: ndarray = None, create_copy: bool = False) -> ndarray[Any, dtype[np.bool]]:
+    def mutate_bool_ndarray(arr: ndarray[Any, dtype[bool]], mutation_chance = 1e-2,rng: np.random.Generator = None,
+                            spare_indexes: ndarray = None, create_copy: bool = False) -> ndarray[Any, dtype[bool]]:
         """
-        This method takes a numpy ndarray of any shape and of np.bool datatype. Each element in this array has
+        This method takes a numpy ndarray of any shape and of bool datatype. Each element in this array has
         a `mutation_chance` chance to be logically flipped. Optionally `spare_indexes` can be provided to locally
         prevent mutations, which is necessary to establish elitism. If `create_copy` is provided this function will
          not make any modifications on the original and return a new array instead.
@@ -540,7 +540,7 @@ class EngineWrapper:
             precision is required, use an array of booleans
             """
 
-        if spare_indexes is not None and spare_indexes.dtype == np.bool and spare_indexes.shape != arr.shape:
+        if spare_indexes is not None and isinstance(spare_indexes.dtype, bool) and spare_indexes.shape != arr.shape:
             err_shape_mismatch_message = (f"boolean spare_indexes need to have the same shape as `arr`, but received "
                                           f"shapes {arr.shape} and {spare_indexes.shape}")
             raise ValueError(err_shape_mismatch_message)
@@ -559,9 +559,9 @@ class EngineWrapper:
         return new_arr
 
     def genetic_algorithm(self, distances_matrix: np.ndarray[np.uint32], sizes_vector: np.ndarray[np.uint32],
-                          initial_population: np.ndarray[np.bool] = None, population_size = 100, seed = None,
+                          initial_population: np.ndarray[bool] = None, population_size = 100, seed = None,
                           rng: np.random.Generator = None, iterations = 100, mutation_chance = 0.005,
-                          guaranteed_elites: int = 1, silent=False) -> np.ndarray[np.bool]:
+                          guaranteed_elites: int = 1, silent=False) -> np.ndarray[bool]:
         """
         This function performs a genetic algorithm for given amount of iterations. Distances matrix and sizes vector
         need to have appropriate shapes, i.e. (cities_amount, cities_amount) and (cities_amount,) respectively.
@@ -572,7 +572,7 @@ class EngineWrapper:
         :param sizes_vector: A 1D ndarray representing the size of each city.
         :param initial_population: A 3D numpy ndarray where the first (i.e. '0-th') dimension is a batch dimension.
             Each element represents one 2D connection matrix (for more details refer to goal_achievement_function().
-            Datatype of this array has to be np.bool. Each connection matrix has the same shape as distances_matrix
+            Datatype of this array has to be bool. Each connection matrix has the same shape as distances_matrix
         :param population_size: Used to determine the size of newly created population. Ignored if initial_population is
             provided.
         :param seed: Used to create new random Generator. Ignored if rng is provided. If neither is provided then
@@ -594,7 +594,7 @@ class EngineWrapper:
             err_shape_mismatch = f"Distances_matrix and sizes_vector do not have matching shapes, cannot establish one"\
                              f" cities_amount. Received shapes {distances_matrix.shape} and {sizes_vector.shape}"
             raise ValueError(err_shape_mismatch)
-        if initial_population is not None and initial_population.dtype != np.bool:
+        if initial_population is not None and not isinstance(initial_population.dtype, bool):
             raise ValueError(f"Initial population must be boolean, got datatype {initial_population.dtype} instead")
 
         cities_amount = distances_matrix.shape[0]
@@ -607,7 +607,7 @@ class EngineWrapper:
             initial_population = self._generate_first_population(distances_matrix, sizes_vector, population_size,
                                                                  cities_amount, rng=rng)
 
-        offspring = np.array(initial_population, dtype=np.bool)
+        offspring = np.array(initial_population, dtype=bool)
         next_goal_achievement = self.goal_function_convenient(distances_matrix, sizes_vector, offspring,
                                                               rewards_matrix=self.rewards_matrix)
         for iteration in range(iterations):
@@ -632,9 +632,9 @@ class EngineWrapper:
             next_goal_achievement = self.goal_function_convenient(distances_matrix, sizes_vector, offspring,
                                                                   rewards_matrix=self.rewards_matrix)
             if not silent:
-                print(f"Generation {iteration}, best solution fittness: {np.max(goal_achievement)}")
+                print(f"Generation {iteration}, best solution fittness: {np.max(goal_achievement):_}")
 
-        print(f"Best found solution fittness: {np.max(next_goal_achievement)}")
+        print(f"Best found solution fittness: {np.max(next_goal_achievement):_}")
 
         return offspring
 
