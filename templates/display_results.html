@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Display results</title>
+</head>
+<body>
+
+
+    <h1>The best found score is: {{ best_score }}</h1>
+
+    <h1>The best found solution:</h1>
+    {% for i in range((best_solution_connections) | count) %}
+        {% if best_solution_connections[i] | count > 0 %}
+            City {{ i }} is connected with cities: {{ best_solution_connections[i] }}
+        {% else %}
+            City {{ i }} is connected with cities: &varnothing;
+        {% endif %}
+
+        <br>
+    {% endfor %}
+
+    <form action="/" method="get">
+        <button type="submit">Go to Home</button>
+    </form>
+</body>
+</html>

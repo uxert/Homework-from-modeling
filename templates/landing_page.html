@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Base page</title>
+</head>
+
+<body>
+    <h1>Welcome to my website!</h1>
+
+    <form action="/submit_cities_amount" method="post">
+        <label for="cities_amount">Enter a number of cities: </label>
+        <input type="number" id="cities_amount" name="cities_amount" min="1" required>
+        <br><br>
+        <label for="infrastructure_cost">Infrastructure Cost:</label>
+        <input type="number" id="infrastructure_cost" name="infrastructure_cost" min="1" max="{{ 2**32-1 }}"
+               value="{{ config_values['PARAMETERS'].getint('infrastructure_cost_b') }}" required><br><br>
+
+        <label for="max_railways_pieces">Max Railways Pieces:</label>
+        <input type="number" id="max_railways_pieces" name="max_railways_pieces" min="1" max="{{ 2**64-1 }}"
+               value="{{ config_values['PARAMETERS'].getint('max_railways_pieces_m') }}" required><br><br>
+
+        <label for="max_connections">Max Connections:</label>
+        <input type="number" id="max_connections" name="max_connections" min="1" max="{{ 2**32-1 }}"
+               value="{{ config_values['PARAMETERS'].getint('max_connections_n') }}" required><br><br>
+
+        <label for="one_rail_cost">One Rail Cost:</label>
+        <input type="number" id="one_rail_cost" name="one_rail_cost" min="1" max="{{ 2**32-1 }}"
+               value="{{ config_values['PARAMETERS'].getint('one_rail_cost_t') }}" required><br><br>
+
+        <label for="max_budget">Max Budget:</label>
+        <input type="number" id="max_budget" name="max_budget" min="1" max="{{ 2**64-1 }}"
+               value="{{ config_values['PARAMETERS'].getint('max_budget_P') }}" required><br><br>
+
+        <label for="max_city_size">Max City Size:</label>
+        <input type="number" id="max_city_size" name="max_city_size" min="64" max="{{ 2**32-1 }}"
+               value="{{ config_values['TECHNICAL_CONSTRAINTS'].getint('max_city_size') }}" required><br><br>
+
+        <label for="max_possible_coordinate">Max Possible Coordinate:</label>
+        <input type="number" id="max_possible_coordinate" name="max_possible_coordinate" min="32" max="{{ 2**32-1 }}"
+               value="{{ config_values['PARAMETERS'].getint('max_possible_coordinate') }}" required><br><br>
+
+        <label for="seed"> Seed to generate cities: </label>
+        <input type="number" id="seed" name="seed" min="0" max="{{ 2**32-1 }}" value="42" required>
+        <input type="submit" value="Submit">
+    </form>
+
+</body>
+</html>
